@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terranova - Gestione Ferie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ═══════════════ ATMOSPHERIC BACKGROUND ═══════════════ -->
+  <div class="bg-atmosphere">
+    <div class="bg-orb bg-orb--1"></div>
+    <div class="bg-orb bg-orb--2"></div>
+    <div class="bg-orb bg-orb--3"></div>
+  </div>
+
+  <!-- ═══════════════ LOGIN SCREEN ═══════════════ -->
+  <div id="screen-login" class="screen screen--active">
+    <div class="login-split">
+      <div class="login-form-side">
+        <div class="login-form-container">
+          <div class="login-brand">
+            <h1 class="login-title">Terranova</h1>
+            <p class="login-subtitle">Gestionale ferie</p>
+          </div>
+
+          <!-- Login Form -->
+          <form id="form-login" class="login-form">
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-input" placeholder="nome@terranova.it" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input type="password" class="form-input" placeholder="Inserisci password" required>
+            </div>
+            <div class="form-row form-row--between">
+              <label class="form-checkbox">
+                <input type="checkbox"> <span>Ricordami</span>
+              </label>
+              <a href="#" class="form-link" id="btn-forgot">Password dimenticata?</a>
+            </div>
+            <button type="submit" class="btn btn--primary btn--full">Accedi</button>
+          </form>
+
+          <!-- Forgot Password Form -->
+          <form id="form-forgot" class="login-form" style="display:none;">
+            <p class="form-desc">Inserisci la tua email per ricevere il link di reset.</p>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-input" placeholder="nome@terranova.it" required>
+            </div>
+            <button type="submit" class="btn btn--primary btn--full">Invia link</button>
+            <button type="button" class="btn btn--ghost btn--full" id="btn-back-login">Torna al login</button>
+          </form>
+        </div>
+      </div>
+      <div class="login-brand-side">
+        <div class="login-brand-overlay">
+          <svg class="login-brand-logo" viewBox="0 0 80 80" fill="none">
+            <path d="M40 4L76 40L40 76L4 40L40 4Z" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" fill="none"/>
+            <path d="M40 16L64 40L40 64L16 40L40 16Z" stroke="rgba(255,255,255,0.3)" stroke-width="1" fill="none"/>
+            <path d="M40 28L52 40L40 52L28 40L40 28Z" fill="rgba(255,255,255,0.15)"/>
+            <path d="M20 40H60" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+            <path d="M40 20V60" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+          </svg>
+          <h2 class="login-brand-text">TERRANOVA</h2>
+          <p class="login-brand-tagline">Pianifica. Approva. Rilassati.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ APP SHELL (post-login) ═══════════════ -->
+  <div id="app-shell" style="display:none;">
+
+    <!-- NAVIGATION BAR -->
+    <nav class="navbar">
+      <div class="navbar-inner">
+        <div class="navbar-left">
+          <a href="#" class="nav-link" data-screen="dashboard">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <span>Dashboard</span>
+          </a>
+          <a href="#" class="nav-link" data-screen="requests">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+            <span>Le mie richieste</span>
+          </a>
+          <a href="#" class="nav-link" data-screen="new-request">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+            <span>Nuova richiesta</span>
+          </a>
+        </div>
+        <div class="navbar-brand">
+          <span class="navbar-brand-text">Gestione ferie</span>
+        </div>
+        <div class="navbar-right">
+          <a href="#" class="nav-link" data-screen="team">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            <span>Team</span>
+          </a>
+          <a href="#" class="nav-link" data-screen="admin">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            <span>Admin</span>
+          </a>
+          <div class="nav-avatar" id="nav-avatar">
+            <span>MB</span>
+            <div class="avatar-dropdown" id="avatar-dropdown">
+              <a href="#" class="dropdown-item" data-screen="settings">Impostazioni</a>
+              <a href="#" class="dropdown-item" id="btn-logout">Esci</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Mobile hamburger -->
+      <button class="navbar-hamburger" id="hamburger">
+        <span></span><span></span><span></span>
+      </button>
+    </nav>
+
+    <!-- Mobile nav overlay -->
+    <div class="mobile-nav" id="mobile-nav">
+      <a href="#" class="mobile-nav-link" data-screen="dashboard">Dashboard</a>
+      <a href="#" class="mobile-nav-link" data-screen="requests">Le mie richieste</a>
+      <a href="#" class="mobile-nav-link" data-screen="new-request">Nuova richiesta</a>
+      <a href="#" class="mobile-nav-link" data-screen="team">Team</a>
+      <a href="#" class="mobile-nav-link" data-screen="admin">Admin</a>
+      <a href="#" class="mobile-nav-link" data-screen="settings">Impostazioni</a>
+      <a href="#" class="mobile-nav-link" id="btn-logout-mobile">Esci</a>
+    </div>
+
+    <main class="main-content">
+
+      <!-- ═══════════════ DASHBOARD ═══════════════ -->
+      <section id="screen-dashboard" class="screen screen--active">
+        <div class="container">
+          <header class="page-header">
+            <h2 class="page-title">Dashboard</h2>
+            <p class="page-subtitle">Benvenuto, Marco Battaglia</p>
+          </header>
+
+          <!-- Summary Cards -->
+          <div class="summary-cards">
+            <div class="glass-card summary-card">
+              <div class="summary-card-icon summary-card-icon--success">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+              <div class="summary-card-body">
+                <span class="summary-card-value">14</span>
+                <span class="summary-card-label">Ferie residue</span>
+              </div>
+              <span class="summary-card-trend summary-card-trend--neutral">di 26 totali</span>
+            </div>
+            <div class="glass-card summary-card">
+              <div class="summary-card-icon summary-card-icon--warning">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </div>
+              <div class="summary-card-body">
+                <span class="summary-card-value">3</span>
+                <span class="summary-card-label">In approvazione</span>
+              </div>
+              <span class="summary-card-trend summary-card-trend--warning">2 in attesa manager</span>
+            </div>
+            <div class="glass-card summary-card">
+              <div class="summary-card-icon summary-card-icon--info">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+              </div>
+              <div class="summary-card-body">
+                <span class="summary-card-value">12</span>
+                <span class="summary-card-label">Ferie passate</span>
+              </div>
+              <span class="summary-card-trend summary-card-trend--success">46% del totale</span>
+            </div>
+          </div>
+
+          <!-- Calendar + Sidebar -->
+          <div class="dashboard-grid">
+            <div class="glass-card calendar-card">
+              <div class="calendar-header">
+                <h3 class="card-title">Calendario ferie</h3>
+                <div class="calendar-nav">
+                  <button class="btn-icon" id="cal-prev">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                  </button>
+                  <span class="calendar-month" id="cal-month">Marzo 2026</span>
+                  <button class="btn-icon" id="cal-next">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="calendar-filters">
+                <button class="filter-toggle filter-toggle--active" data-filter="mine">Le mie ferie</button>
+                <button class="filter-toggle" data-filter="colleagues">Colleghi</button>
+                <button class="filter-toggle" data-filter="group">Gruppo</button>
+                <button class="filter-toggle" data-filter="blocked">Non-bookable</button>
+              </div>
+              <div class="calendar-grid" id="calendar-grid">
+                <!-- Rendered by JS -->
+              </div>
+              <div class="calendar-legend" id="calendar-legend">
+                <!-- Rendered by JS -->
+              </div>
+            </div>
+
+            <div class="dashboard-sidebar">
+              <!-- Recent Activity -->
+              <div class="glass-card activity-card">
+                <h3 class="card-title">Attivita recente</h3>
+                <div class="activity-feed">
+                  <div class="activity-item">
+                    <div class="activity-dot activity-dot--success"></div>
+                    <div class="activity-body">
+                      <p class="activity-text"><strong>Richiesta #1042</strong> approvata dal manager</p>
+                      <span class="activity-time">2 ore fa</span>
+                    </div>
+                  </div>
+                  <div class="activity-item">
+                    <div class="activity-dot activity-dot--warning"></div>
+                    <div class="activity-body">
+                      <p class="activity-text">Nuovo commento su <strong>Richiesta #1038</strong></p>
+                      <span class="activity-time">5 ore fa</span>
+                    </div>
+                  </div>
+                  <div class="activity-item">
+                    <div class="activity-dot activity-dot--info"></div>
+                    <div class="activity-body">
+                      <p class="activity-text"><strong>Richiesta #1045</strong> inviata a HR</p>
+                      <span class="activity-time">1 giorno fa</span>
+                    </div>
+                  </div>
+                  <div class="activity-item">
+                    <div class="activity-dot activity-dot--danger"></div>
+                    <div class="activity-body">
+                      <p class="activity-text"><strong>Richiesta #1035</strong> rifiutata - conflitto</p>
+                      <span class="activity-time">2 giorni fa</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Latest Requests Table -->
+              <div class="glass-card">
+                <h3 class="card-title">Ultime richieste</h3>
+                <div class="table-responsive">
+                  <table class="data-table data-table--compact">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Periodo</th>
+                        <th>Stato</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="clickable-row" data-screen="request-detail">
+                        <td class="mono">#1045</td>
+                        <td>14-18 Apr</td>
+                        <td><span class="badge badge--warning">In attesa</span></td>
+                      </tr>
+                      <tr class="clickable-row" data-screen="request-detail">
+                        <td class="mono">#1042</td>
+                        <td>7-11 Apr</td>
+                        <td><span class="badge badge--success">Approvata</span></td>
+                      </tr>
+                      <tr class="clickable-row" data-screen="request-detail">
+                        <td class="mono">#1038</td>
+                        <td>24-28 Mar</td>
+                        <td><span class="badge badge--warning">In attesa</span></td>
+                      </tr>
+                      <tr class="clickable-row" data-screen="request-detail">
+                        <td class="mono">#1035</td>
+                        <td>17-19 Mar</td>
+                        <td><span class="badge badge--danger">Rifiutata</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ MY REQUESTS ═══════════════ -->
+      <section id="screen-requests" class="screen">
+        <div class="container">
+          <header class="page-header">
+            <h2 class="page-title">Le mie richieste</h2>
+            <button class="btn btn--primary" data-screen="new-request">+ Nuova richiesta</button>
+          </header>
+
+          <div class="glass-card">
+            <div class="table-toolbar">
+              <div class="search-box">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="text" class="form-input form-input--search" placeholder="Cerca richieste...">
+              </div>
+              <div class="table-filters">
+                <select class="form-select">
+                  <option>Tutti gli stati</option>
+                  <option>In attesa</option>
+                  <option>Approvata</option>
+                  <option>Rifiutata</option>
+                </select>
+                <select class="form-select">
+                  <option>Ultimo anno</option>
+                  <option>Ultimi 6 mesi</option>
+                  <option>Ultimo mese</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID richiesta</th>
+                    <th>Tipo</th>
+                    <th>Periodo</th>
+                    <th>Data richiesta</th>
+                    <th>Durata</th>
+                    <th>Stato</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="clickable-row" data-screen="request-detail">
+                    <td class="mono">#REQ-1045</td>
+                    <td>Ferie</td>
+                    <td>14 Apr - 18 Apr 2026</td>
+                    <td>18 Mar 2026</td>
+                    <td>5 giorni</td>
+                    <td><span class="badge badge--warning">In attesa Manager</span></td>
+                    <td><button class="btn-icon btn-icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg></button></td>
+                  </tr>
+                  <tr class="clickable-row" data-screen="request-detail">
+                    <td class="mono">#REQ-1042</td>
+                    <td>Ferie</td>
+                    <td>7 Apr - 11 Apr 2026</td>
+                    <td>10 Mar 2026</td>
+                    <td>5 giorni</td>
+                    <td><span class="badge badge--success">Approvata</span></td>
+                    <td><button class="btn-icon btn-icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg></button></td>
+                  </tr>
+                  <tr class="clickable-row" data-screen="request-detail">
+                    <td class="mono">#REQ-1038</td>
+                    <td>Permesso</td>
+                    <td>24 Mar - 28 Mar 2026</td>
+                    <td>5 Mar 2026</td>
+                    <td>5 giorni</td>
+                    <td><span class="badge badge--warning">In attesa HR</span></td>
+                    <td><button class="btn-icon btn-icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg></button></td>
+                  </tr>
+                  <tr class="clickable-row" data-screen="request-detail">
+                    <td class="mono">#REQ-1035</td>
+                    <td>Ferie</td>
+                    <td>17 Mar - 19 Mar 2026</td>
+                    <td>1 Mar 2026</td>
+                    <td>3 giorni</td>
+                    <td><span class="badge badge--danger">Rifiutata</span></td>
+                    <td><button class="btn-icon btn-icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg></button></td>
+                  </tr>
+                  <tr class="clickable-row" data-screen="request-detail">
+                    <td class="mono">#REQ-1028</td>
+                    <td>Ferie</td>
+                    <td>10 Feb - 14 Feb 2026</td>
+                    <td>20 Gen 2026</td>
+                    <td>5 giorni</td>
+                    <td><span class="badge badge--success">Approvata</span></td>
+                    <td><button class="btn-icon btn-icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg></button></td>
+                  </tr>
+                  <tr class="clickable-row" data-screen="request-detail">
+                    <td class="mono">#REQ-1019</td>
+                    <td>Ferie</td>
+                    <td>22 Dic - 31 Dic 2025</td>
+                    <td>1 Dic 2025</td>
+                    <td>7 giorni</td>
+                    <td><span class="badge badge--success">Approvata</span></td>
+                    <td><button class="btn-icon btn-icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg></button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Timeline -->
+          <div class="glass-card" style="margin-top: 1.5rem;">
+            <h3 class="card-title">Stato approvazione - #REQ-1045</h3>
+            <div class="approval-timeline">
+              <div class="timeline-step timeline-step--done">
+                <div class="timeline-dot"></div>
+                <div class="timeline-content">
+                  <span class="timeline-label">Inviata</span>
+                  <span class="timeline-date">18 Mar 2026</span>
+                </div>
+              </div>
+              <div class="timeline-connector timeline-connector--active"></div>
+              <div class="timeline-step timeline-step--active">
+                <div class="timeline-dot"></div>
+                <div class="timeline-content">
+                  <span class="timeline-label">Manager</span>
+                  <span class="timeline-date">In attesa</span>
+                </div>
+              </div>
+              <div class="timeline-connector"></div>
+              <div class="timeline-step">
+                <div class="timeline-dot"></div>
+                <div class="timeline-content">
+                  <span class="timeline-label">HR</span>
+                  <span class="timeline-date">--</span>
+                </div>
+              </div>
+              <div class="timeline-connector"></div>
+              <div class="timeline-step">
+                <div class="timeline-dot"></div>
+                <div class="timeline-content">
+                  <span class="timeline-label">Completata</span>
+                  <span class="timeline-date">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ NEW REQUEST ═══════════════ -->
+      <section id="screen-new-request" class="screen">
+        <div class="container container--narrow">
+          <header class="page-header">
+            <h2 class="page-title">Nuova richiesta</h2>
+          </header>
+          <div class="glass-card">
+            <form id="form-new-request">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Tipo di assenza</label>
+                  <select class="form-select" required>
+                    <option value="">Seleziona tipo</option>
+                    <option value="ferie">Ferie</option>
+                    <option value="permesso">Permesso</option>
+                    <option value="malattia">Malattia</option>
+                    <option value="altro">Altro</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Priorita</label>
+                  <select class="form-select">
+                    <option value="normal">Normale</option>
+                    <option value="urgent">Urgente</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Data inizio</label>
+                  <input type="date" class="form-input" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Data fine</label>
+                  <input type="date" class="form-input" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Note</label>
+                <textarea class="form-textarea" rows="4" placeholder="Aggiungi eventuali note..."></textarea>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn--ghost" data-screen="dashboard">Annulla</button>
+                <button type="submit" class="btn btn--primary">Invia richiesta</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ REQUEST DETAIL ═══════════════ -->
+      <section id="screen-request-detail" class="screen">
+        <div class="container">
+          <header class="page-header">
+            <button class="btn btn--ghost" data-screen="requests">
+              <svg style="width:16px;height:16px;margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+              Indietro
+            </button>
+            <span class="mono page-id">#REQ-1045</span>
+          </header>
+
+          <div class="detail-grid">
+            <!-- Main Detail -->
+            <div class="detail-main">
+              <div class="glass-card">
+                <h3 class="card-title">Dettagli richiesta</h3>
+                <div class="detail-meta">
+                  <div class="meta-row">
+                    <span class="meta-label">Tipo</span>
+                    <span class="meta-value">Ferie</span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Periodo</span>
+                    <span class="meta-value">14 Aprile - 18 Aprile 2026</span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Durata</span>
+                    <span class="meta-value">5 giorni lavorativi</span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Stato</span>
+                    <span class="meta-value"><span class="badge badge--warning">In attesa Manager</span></span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Data invio</span>
+                    <span class="meta-value">18 Marzo 2026, 09:32</span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Richiedente</span>
+                    <span class="meta-value">Marco Battaglia</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Discussion -->
+              <div class="glass-card" style="margin-top:1.5rem;">
+                <h3 class="card-title">Discussione</h3>
+                <div class="discussion-thread">
+                  <div class="comment">
+                    <div class="comment-header">
+                      <div class="comment-avatar">MB</div>
+                      <div class="comment-meta">
+                        <span class="comment-name">Marco Battaglia</span>
+                        <span class="comment-badge comment-badge--requester">Richiedente</span>
+                        <span class="comment-time">18 Mar, 09:32</span>
+                      </div>
+                    </div>
+                    <p class="comment-body">Vorrei prendere la settimana del 14-18 Aprile per vacanze programmate. Ho gia completato i deliverable Q1.</p>
+                  </div>
+                  <div class="comment">
+                    <div class="comment-header">
+                      <div class="comment-avatar comment-avatar--manager">LR</div>
+                      <div class="comment-meta">
+                        <span class="comment-name">Laura Rossi</span>
+                        <span class="comment-badge comment-badge--leader">Team Leader</span>
+                        <span class="comment-time">18 Mar, 14:15</span>
+                      </div>
+                    </div>
+                    <p class="comment-body">Verifico la copertura del team per quella settimana. Ci sono gia 2 persone in ferie, potrebbe servire una revisione.</p>
+                  </div>
+                  <div class="comment">
+                    <div class="comment-header">
+                      <div class="comment-avatar">MB</div>
+                      <div class="comment-meta">
+                        <span class="comment-name">Marco Battaglia</span>
+                        <span class="comment-badge comment-badge--requester">Richiedente</span>
+                        <span class="comment-time">19 Mar, 08:45</span>
+                      </div>
+                    </div>
+                    <p class="comment-body">Se necessario, posso spostare al 21-25 Aprile. Fammi sapere cosa funziona meglio.</p>
+                  </div>
+                </div>
+                <div class="comment-input-area">
+                  <textarea class="form-textarea" rows="2" placeholder="Scrivi un commento..."></textarea>
+                  <button class="btn btn--primary btn--sm">Invia</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Manager Sidebar -->
+            <div class="detail-sidebar">
+              <div class="glass-card manager-actions">
+                <h3 class="card-title">Azioni manager</h3>
+                <p class="form-desc">Approva o rifiuta questa richiesta di ferie.</p>
+                <div class="form-group">
+                  <label class="form-label">Motivazione (obbligatoria per rifiuto)</label>
+                  <textarea class="form-textarea" rows="3" placeholder="Inserisci motivazione..."></textarea>
+                </div>
+                <div class="manager-action-btns">
+                  <button class="btn btn--success btn--full">
+                    <svg style="width:16px;height:16px;margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                    Approva
+                  </button>
+                  <button class="btn btn--danger btn--full">
+                    <svg style="width:16px;height:16px;margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    Rifiuta
+                  </button>
+                </div>
+              </div>
+
+              <!-- Approval Timeline -->
+              <div class="glass-card" style="margin-top:1.5rem;">
+                <h3 class="card-title">Avanzamento</h3>
+                <div class="approval-timeline approval-timeline--vertical">
+                  <div class="timeline-step timeline-step--done">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                      <span class="timeline-label">Inviata</span>
+                      <span class="timeline-date">18 Mar 2026</span>
+                    </div>
+                  </div>
+                  <div class="timeline-step timeline-step--active">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                      <span class="timeline-label">Approvazione manager</span>
+                      <span class="timeline-date">In corso</span>
+                    </div>
+                  </div>
+                  <div class="timeline-step">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                      <span class="timeline-label">Approvazione HR</span>
+                      <span class="timeline-date">--</span>
+                    </div>
+                  </div>
+                  <div class="timeline-step">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                      <span class="timeline-label">Completata</span>
+                      <span class="timeline-date">--</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ TEAM VIEW ═══════════════ -->
+      <section id="screen-team" class="screen">
+        <div class="container">
+          <header class="page-header">
+            <h2 class="page-title">Vista team</h2>
+            <div class="page-actions">
+              <select class="form-select">
+                <option>Team Engineering</option>
+                <option>Team Design</option>
+                <option>Team Marketing</option>
+              </select>
+            </div>
+          </header>
+
+          <!-- Capacity Heatmap -->
+          <div class="glass-card">
+            <h3 class="card-title">Copertura team - marzo 2026</h3>
+            <div class="heatmap" id="heatmap">
+              <!-- Rendered by JS -->
+            </div>
+            <div class="heatmap-legend">
+              <span class="legend-item"><span class="legend-dot legend-dot--heatmap-high"></span> &gt;80% presenza</span>
+              <span class="legend-item"><span class="legend-dot legend-dot--heatmap-med"></span> 50-80% presenza</span>
+              <span class="legend-item"><span class="legend-dot legend-dot--heatmap-low"></span> &lt;50% presenza</span>
+            </div>
+          </div>
+
+          <!-- Team Requests -->
+          <div class="glass-card" style="margin-top:1.5rem;">
+            <div class="table-toolbar">
+              <h3 class="card-title">Richieste del team</h3>
+              <div class="table-filters">
+                <select class="form-select">
+                  <option>Tutti gli stati</option>
+                  <option>In attesa</option>
+                  <option>Approvata</option>
+                  <option>Rifiutata</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Membro</th>
+                    <th>ID</th>
+                    <th>Periodo</th>
+                    <th>Durata</th>
+                    <th>Stato</th>
+                    <th>Conflitti</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="clickable-row" data-screen="request-detail">
+                    <td>
+                      <div class="member-cell">
+                        <span class="member-avatar">MB</span>
+                        <span>Marco Battaglia</span>
+                      </div>
+                    </td>
+                    <td class="mono">#1045</td>
+                    <td>14-18 Apr</td>
+                    <td>5 gg</td>
+                    <td><span class="badge badge--warning">In attesa</span></td>
+                    <td><span class="conflict-indicator conflict-indicator--warn">2 sovrapposizioni</span></td>
+                    <td><button class="btn btn--sm btn--ghost" data-screen="request-detail">Rivedi</button></td>
+                  </tr>
+                  <tr class="clickable-row" data-screen="request-detail">
+                    <td>
+                      <div class="member-cell">
+                        <span class="member-avatar member-avatar--alt1">AG</span>
+                        <span>Anna Greco</span>
+                      </div>
+                    </td>
+                    <td class="mono">#1044</td>
+                    <td>14-16 Apr</td>
+                    <td>3 gg</td>
+                    <td><span class="badge badge--warning">In attesa</span></td>
+                    <td><span class="conflict-indicator conflict-indicator--warn">1 sovrapposizione</span></td>
+                    <td><button class="btn btn--sm btn--ghost" data-screen="request-detail">Rivedi</button></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="member-cell">
+                        <span class="member-avatar member-avatar--alt2">PV</span>
+                        <span>Paolo Verdi</span>
+                      </div>
+                    </td>
+                    <td class="mono">#1041</td>
+                    <td>7-9 Apr</td>
+                    <td>3 gg</td>
+                    <td><span class="badge badge--success">Approvata</span></td>
+                    <td><span class="conflict-indicator">Nessuno</span></td>
+                    <td><button class="btn btn--sm btn--ghost" data-screen="request-detail">Dettagli</button></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="member-cell">
+                        <span class="member-avatar member-avatar--alt3">SF</span>
+                        <span>Sara Ferrari</span>
+                      </div>
+                    </td>
+                    <td class="mono">#1039</td>
+                    <td>21-25 Apr</td>
+                    <td>5 gg</td>
+                    <td><span class="badge badge--success">Approvata</span></td>
+                    <td><span class="conflict-indicator">Nessuno</span></td>
+                    <td><button class="btn btn--sm btn--ghost" data-screen="request-detail">Dettagli</button></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="member-cell">
+                        <span class="member-avatar member-avatar--alt4">GB</span>
+                        <span>Giulia Bianchi</span>
+                      </div>
+                    </td>
+                    <td class="mono">#1036</td>
+                    <td>14-18 Apr</td>
+                    <td>5 gg</td>
+                    <td><span class="badge badge--warning">In attesa</span></td>
+                    <td><span class="conflict-indicator conflict-indicator--danger">3 sovrapposizioni</span></td>
+                    <td><button class="btn btn--sm btn--ghost" data-screen="request-detail">Rivedi</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ ADMIN PANEL ═══════════════ -->
+      <section id="screen-admin" class="screen">
+        <div class="container">
+          <header class="page-header">
+            <h2 class="page-title">Pannello admin</h2>
+          </header>
+
+          <!-- Admin Tabs -->
+          <div class="admin-tabs">
+            <button class="admin-tab admin-tab--active" data-admin-tab="users">Utenti e gruppi</button>
+            <button class="admin-tab" data-admin-tab="rules">Regole e vincoli</button>
+            <button class="admin-tab" data-admin-tab="simulation">Simulazione</button>
+          </div>
+
+          <!-- Users Tab -->
+          <div id="admin-users" class="admin-panel admin-panel--active">
+            <div class="glass-card">
+              <div class="table-toolbar">
+                <h3 class="card-title">Gestione utenti</h3>
+                <button class="btn btn--primary btn--sm">+ Aggiungi utente</button>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Email</th>
+                      <th>Ruolo</th>
+                      <th>Gruppo</th>
+                      <th>Stato</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Marco Battaglia</td>
+                      <td class="mono">m.battaglia@terranova.it</td>
+                      <td>Employee</td>
+                      <td>Engineering</td>
+                      <td><span class="badge badge--success">Attivo</span></td>
+                      <td><button class="btn btn--sm btn--ghost">Modifica</button></td>
+                    </tr>
+                    <tr>
+                      <td>Laura Rossi</td>
+                      <td class="mono">l.rossi@terranova.it</td>
+                      <td>Manager</td>
+                      <td>Engineering</td>
+                      <td><span class="badge badge--success">Attivo</span></td>
+                      <td><button class="btn btn--sm btn--ghost">Modifica</button></td>
+                    </tr>
+                    <tr>
+                      <td>Anna Greco</td>
+                      <td class="mono">a.greco@terranova.it</td>
+                      <td>Employee</td>
+                      <td>Engineering</td>
+                      <td><span class="badge badge--success">Attivo</span></td>
+                      <td><button class="btn btn--sm btn--ghost">Modifica</button></td>
+                    </tr>
+                    <tr>
+                      <td>Paolo Verdi</td>
+                      <td class="mono">p.verdi@terranova.it</td>
+                      <td>Employee</td>
+                      <td>Design</td>
+                      <td><span class="badge badge--success">Attivo</span></td>
+                      <td><button class="btn btn--sm btn--ghost">Modifica</button></td>
+                    </tr>
+                    <tr>
+                      <td>Giovanni Neri</td>
+                      <td class="mono">g.neri@terranova.it</td>
+                      <td>Admin</td>
+                      <td>HR</td>
+                      <td><span class="badge badge--success">Attivo</span></td>
+                      <td><button class="btn btn--sm btn--ghost">Modifica</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="glass-card" style="margin-top:1.5rem;">
+              <div class="table-toolbar">
+                <h3 class="card-title">Gruppi</h3>
+                <button class="btn btn--primary btn--sm">+ Nuovo gruppo</button>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Gruppo</th>
+                      <th>Manager</th>
+                      <th>Membri</th>
+                      <th>Ferie medie residue</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Engineering</td>
+                      <td>Laura Rossi</td>
+                      <td>8</td>
+                      <td>12.5 giorni</td>
+                      <td><button class="btn btn--sm btn--ghost">Gestisci</button></td>
+                    </tr>
+                    <tr>
+                      <td>Design</td>
+                      <td>Fabio Marini</td>
+                      <td>4</td>
+                      <td>15.2 giorni</td>
+                      <td><button class="btn btn--sm btn--ghost">Gestisci</button></td>
+                    </tr>
+                    <tr>
+                      <td>Marketing</td>
+                      <td>Elena Costa</td>
+                      <td>6</td>
+                      <td>10.8 giorni</td>
+                      <td><button class="btn btn--sm btn--ghost">Gestisci</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rules Tab -->
+          <div id="admin-rules" class="admin-panel">
+            <div class="glass-card">
+              <h3 class="card-title">Vincoli attivi per periodo</h3>
+              <div class="rules-list">
+                <div class="rule-card">
+                  <div class="rule-header">
+                    <h4 class="rule-name">Periodo estivo</h4>
+                    <span class="badge badge--success">Attivo</span>
+                  </div>
+                  <div class="rule-details">
+                    <div class="rule-detail">
+                      <span class="rule-detail-label">Periodo</span>
+                      <span class="rule-detail-value">1 Giu - 30 Set 2026</span>
+                    </div>
+                    <div class="rule-detail">
+                      <span class="rule-detail-label">Max giorni consecutivi</span>
+                      <span class="rule-detail-value">15</span>
+                    </div>
+                    <div class="rule-detail">
+                      <span class="rule-detail-label">Min presenza per ruolo</span>
+                      <span class="rule-detail-value">60%</span>
+                    </div>
+                    <div class="rule-detail">
+                      <span class="rule-detail-label">Preavviso minimo</span>
+                      <span class="rule-detail-value">14 giorni</span>
+                    </div>
+                  </div>
+                  <button class="btn btn--sm btn--ghost">Modifica</button>
+                </div>
+                <div class="rule-card">
+                  <div class="rule-header">
+                    <h4 class="rule-name">Periodo natalizio</h4>
+                    <span class="badge badge--warning">Prossimo</span>
+                  </div>
+                  <div class="rule-details">
+                    <div class="rule-detail">
+                      <span class="rule-detail-label">Periodo</span>
+                      <span class="rule-detail-value">20 Dic 2026 - 6 Gen 2027</span>
+                    </div>
+                    <div class="rule-detail">
+                      <span class="rule-detail-label">Max giorni consecutivi</span>
+                      <span class="rule-detail-value">10</span>
+                    </div>
+                    <div class="rule-detail">
+                      <span class="rule-detail-label">Min presenza per ruolo</span>
+                      <span class="rule-detail-value">40%</span>
+                    </div>
+                    <div class="rule-detail">
+                      <span class="rule-detail-label">Preavviso minimo</span>
+                      <span class="rule-detail-value">30 giorni</span>
+                    </div>
+                  </div>
+                  <button class="btn btn--sm btn--ghost">Modifica</button>
+                </div>
+              </div>
+              <button class="btn btn--primary" style="margin-top:1rem;">+ Nuovo vincolo</button>
+            </div>
+
+            <!-- Rule Form -->
+            <div class="glass-card" style="margin-top:1.5rem;">
+              <h3 class="card-title">Configura nuovo vincolo</h3>
+              <form class="rule-form">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Nome vincolo</label>
+                    <input type="text" class="form-input" placeholder="Es. Periodo pasquale">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Stato</label>
+                    <select class="form-select">
+                      <option>Attivo</option>
+                      <option>Disattivato</option>
+                      <option>Bozza</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Data inizio</label>
+                    <input type="date" class="form-input">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Data fine</label>
+                    <input type="date" class="form-input">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Max giorni consecutivi</label>
+                    <input type="number" class="form-input" placeholder="15" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Min presenza per ruolo (%)</label>
+                    <input type="number" class="form-input" placeholder="60" min="0" max="100">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Preavviso minimo (giorni)</label>
+                    <input type="number" class="form-input" placeholder="14" min="0">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Min giorni richiesta</label>
+                    <input type="number" class="form-input" placeholder="1" min="1">
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="button" class="btn btn--ghost">Annulla</button>
+                  <button type="submit" class="btn btn--primary">Salva vincolo</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Simulation Tab -->
+          <div id="admin-simulation" class="admin-panel">
+            <div class="simulation-grid">
+              <div class="glass-card simulation-stat">
+                <div class="simulation-stat-value simulation-stat-value--success">78%</div>
+                <div class="simulation-stat-label">Tasso approvazione stimato</div>
+                <p class="simulation-stat-desc">Basato sui vincoli attivi e richieste pendenti</p>
+              </div>
+              <div class="glass-card simulation-stat">
+                <div class="simulation-stat-value simulation-stat-value--warning">5</div>
+                <div class="simulation-stat-label">Richieste in conflitto</div>
+                <p class="simulation-stat-desc">Sovrapposizioni rilevate nel periodo corrente</p>
+              </div>
+              <div class="glass-card simulation-stat">
+                <div class="simulation-stat-value simulation-stat-value--info">92%</div>
+                <div class="simulation-stat-label">Copertura media team</div>
+                <p class="simulation-stat-desc">Presenza media prevista per i prossimi 30 giorni</p>
+              </div>
+            </div>
+
+            <div class="glass-card" style="margin-top:1.5rem;">
+              <h3 class="card-title">Impatto simulazione</h3>
+              <p class="form-desc">Visualizzazione dell'impatto dei vincoli attivi sulle richieste pendenti.</p>
+              <div class="simulation-bars">
+                <div class="sim-bar-group">
+                  <div class="sim-bar-label">Engineering</div>
+                  <div class="sim-bar-track">
+                    <div class="sim-bar-fill sim-bar-fill--success" style="width:85%"></div>
+                  </div>
+                  <span class="sim-bar-value">85%</span>
+                </div>
+                <div class="sim-bar-group">
+                  <div class="sim-bar-label">Design</div>
+                  <div class="sim-bar-track">
+                    <div class="sim-bar-fill sim-bar-fill--success" style="width:92%"></div>
+                  </div>
+                  <span class="sim-bar-value">92%</span>
+                </div>
+                <div class="sim-bar-group">
+                  <div class="sim-bar-label">Marketing</div>
+                  <div class="sim-bar-track">
+                    <div class="sim-bar-fill sim-bar-fill--warning" style="width:68%"></div>
+                  </div>
+                  <span class="sim-bar-value">68%</span>
+                </div>
+                <div class="sim-bar-group">
+                  <div class="sim-bar-label">HR</div>
+                  <div class="sim-bar-track">
+                    <div class="sim-bar-fill sim-bar-fill--success" style="width:95%"></div>
+                  </div>
+                  <span class="sim-bar-value">95%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ SETTINGS ═══════════════ -->
+      <section id="screen-settings" class="screen">
+        <div class="container container--narrow">
+          <header class="page-header">
+            <h2 class="page-title">Impostazioni</h2>
+          </header>
+          <div class="glass-card">
+            <h3 class="card-title">Profilo</h3>
+            <form>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Nome</label>
+                  <input type="text" class="form-input" value="Marco">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Cognome</label>
+                  <input type="text" class="form-input" value="Battaglia">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email</label>
+                  <input type="email" class="form-input" value="m.battaglia@terranova.it" disabled>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Ruolo</label>
+                  <input type="text" class="form-input" value="Employee" disabled>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn--primary">Salva modifiche</button>
+              </div>
+            </form>
+          </div>
+          <div class="glass-card" style="margin-top:1.5rem;">
+            <h3 class="card-title">Notifiche</h3>
+            <div class="settings-toggles">
+              <label class="toggle-row">
+                <span>Notifiche email per approvazioni</span>
+                <input type="checkbox" class="toggle-input" checked>
+                <span class="toggle-switch"></span>
+              </label>
+              <label class="toggle-row">
+                <span>Notifiche email per commenti</span>
+                <input type="checkbox" class="toggle-input" checked>
+                <span class="toggle-switch"></span>
+              </label>
+              <label class="toggle-row">
+                <span>Promemoria scadenze</span>
+                <input type="checkbox" class="toggle-input">
+                <span class="toggle-switch"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
