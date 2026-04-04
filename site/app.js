@@ -95,28 +95,11 @@
     }
   });
 
-  // ── LOGIN ───────────────────────────────────────
-  $('#form-login').addEventListener('submit', (e) => {
-    e.preventDefault();
+  // ── LOGIN (Google OAuth – simulato nel prototipo) ───────────
+  $('#btn-google-login').addEventListener('click', () => {
+    // In produzione: redirect a Google OAuth 2.0
+    // Per il prototipo: accesso diretto alla dashboard
     navigateTo('dashboard');
-  });
-
-  $('#btn-forgot').addEventListener('click', (e) => {
-    e.preventDefault();
-    $('#form-login').style.display = 'none';
-    $('#form-forgot').style.display = '';
-  });
-
-  $('#btn-back-login').addEventListener('click', () => {
-    $('#form-forgot').style.display = 'none';
-    $('#form-login').style.display = '';
-  });
-
-  $('#form-forgot').addEventListener('submit', (e) => {
-    e.preventDefault();
-    alert('Link di reset inviato!');
-    $('#form-forgot').style.display = 'none';
-    $('#form-login').style.display = '';
   });
 
   // Logout
@@ -355,7 +338,7 @@
 
   // ── PREVENT DEFAULT ON REMAINING FORMS ──────────
   $$('form').forEach(form => {
-    if (form.id === 'form-login' || form.id === 'form-forgot' || form.id === 'form-new-request') return;
+    if (form.id === 'form-new-request') return;
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       alert('Salvato!');
