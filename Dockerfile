@@ -1,19 +1,22 @@
-FROM nginx:1.27-alpine
+FROM python:3.12-slim
 
-# Non girare come root
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup && \
-    chown -R appuser:appgroup /var/cache/nginx /var/log/nginx /etc/nginx/conf.d && \
-    touch /var/run/nginx.pid && chown appuser:appgroup /var/run/nginx.pid
+WORKDIR /app
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY index.html /usr/share/nginx/html/
-COPY styles.css /usr/share/nginx/html/
-COPY app.js /usr/share/nginx/html/
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/ ./backend/
+COPY site/ ./site/
+
+RUN addgroup --gid 1001 appgroup && \
+    adduser --uid 1001 --ingroup appgroup --no-create-home appuser && \
+    chown -R appuser:appgroup /app
 
 USER appuser
 
-EXPOSE 8005
+EXPOSE 5000
 
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-    CMD wget -qO- http://localhost:8005/ || exit 1
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--chdir", "/app/backend", "app:app"]
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/')" || exit 1

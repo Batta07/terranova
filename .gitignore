@@ -1,0 +1,6 @@
+.DS_Store
+backend/terranova.db
+__pycache__/
+*.pyc
+*.pyo
+.env
