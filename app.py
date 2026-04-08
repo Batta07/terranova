@@ -134,6 +134,14 @@ def catch_all(path):
 
 @app.route('/api/auth/users', methods=['GET'])
 def auth_users():
+    """
+    Lista tutti gli utenti (per il login in modalità dev).
+    ---
+    tags: [Auth]
+    responses:
+      200:
+        description: Lista utenti
+    """
     conn = get_db()
     rows = conn.execute('SELECT id, nome, cognome, email FROM Utenti ORDER BY nome, cognome').fetchall()
     conn.close()
@@ -142,6 +150,21 @@ def auth_users():
 
 @app.route('/api/auth/login', methods=['POST'])
 def auth_login():
+    """
+    Effettua il login selezionando un utente per email.
+    ---
+    tags: [Auth]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            email: {type: string, example: 'manuel@terranova.it'}
+    responses:
+      200:
+        description: Login effettuato
+      404:
+        description: Utente non trovato
+    """
     data = request.get_json(force=True)
     email = (data or {}).get('email', '').strip()
     if not email:
@@ -165,6 +188,14 @@ def auth_login():
 
 @app.route('/api/auth/logout', methods=['POST'])
 def auth_logout():
+    """
+    Termina la sessione corrente.
+    ---
+    tags: [Auth]
+    responses:
+      200:
+        description: Logout effettuato
+    """
     session.clear()
     resp = jsonify({})
     resp.delete_cookie('session')
@@ -173,6 +204,16 @@ def auth_logout():
 
 @app.route('/api/auth/me', methods=['GET'])
 def auth_me():
+    """
+    Restituisce il profilo dell'utente autenticato.
+    ---
+    tags: [Auth]
+    responses:
+      200:
+        description: Utente corrente
+      401:
+        description: Non autenticato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -183,6 +224,16 @@ def auth_me():
 
 @app.route('/api/dashboard', methods=['GET'])
 def dashboard():
+    """
+    Restituisce statistiche e richieste recenti per la dashboard.
+    ---
+    tags: [Dashboard]
+    responses:
+      200:
+        description: Dati dashboard (richieste in attesa, ferie usate, richieste recenti)
+      401:
+        description: Non autenticato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -228,6 +279,25 @@ def dashboard():
 
 @app.route('/api/calendar/<int:year>/<int:month>', methods=['GET'])
 def calendar_data(year, month):
+    """
+    Restituisce prenotazioni e giorni bloccati per il mese indicato.
+    ---
+    tags: [Calendario]
+    parameters:
+      - in: path
+        name: year
+        type: integer
+        example: 2026
+      - in: path
+        name: month
+        type: integer
+        example: 4
+    responses:
+      200:
+        description: Dati calendario (persone, prenotazioni, giorni bloccati)
+      401:
+        description: Non autenticato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -296,6 +366,25 @@ def calendar_data(year, month):
 
 @app.route('/api/heatmap/<int:year>/<int:month>', methods=['GET'])
 def heatmap(year, month):
+    """
+    Restituisce la heatmap di presenza del team per settimana.
+    ---
+    tags: [Calendario]
+    parameters:
+      - in: path
+        name: year
+        type: integer
+        example: 2026
+      - in: path
+        name: month
+        type: integer
+        example: 4
+    responses:
+      200:
+        description: Livelli di presenza per membro del gruppo (high/med/low)
+      401:
+        description: Non autenticato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -363,6 +452,16 @@ def heatmap(year, month):
 
 @app.route('/api/requests', methods=['GET'])
 def requests_list():
+    """
+    Elenca le richieste di ferie dell'utente autenticato.
+    ---
+    tags: [Richieste]
+    responses:
+      200:
+        description: Lista richieste
+      401:
+        description: Non autenticato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -390,6 +489,20 @@ def requests_list():
 
 @app.route('/api/requests/<int:req_id>', methods=['GET'])
 def request_detail(req_id):
+    """
+    Restituisce il dettaglio di una richiesta con commenti e timeline.
+    ---
+    tags: [Richieste]
+    parameters:
+      - in: path
+        name: req_id
+        type: integer
+    responses:
+      200:
+        description: Dettaglio richiesta
+      404:
+        description: Non trovata
+    """
     user, err = _require_session()
     if err:
         return err
@@ -445,6 +558,24 @@ def request_detail(req_id):
 
 @app.route('/api/requests', methods=['POST'])
 def request_create():
+    """
+    Crea una nuova richiesta di ferie o permesso.
+    ---
+    tags: [Richieste]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            type: {type: string, example: 'ferie', enum: [ferie, permesso]}
+            start_date: {type: string, example: '2026-07-01'}
+            end_date: {type: string, example: '2026-07-05'}
+            notes: {type: string, example: 'Vacanza estiva'}
+    responses:
+      201:
+        description: Richiesta creata
+      400:
+        description: Dati mancanti o vincoli violati
+    """
     user, err = _require_session()
     if err:
         return err
@@ -516,6 +647,20 @@ def request_create():
 
 @app.route('/api/requests/<int:req_id>/approve', methods=['POST'])
 def request_approve(req_id):
+    """
+    Approva una richiesta (solo responsabile del gruppo).
+    ---
+    tags: [Richieste]
+    parameters:
+      - in: path
+        name: req_id
+        type: integer
+    responses:
+      200:
+        description: Richiesta approvata
+      403:
+        description: Non autorizzato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -524,6 +669,26 @@ def request_approve(req_id):
 
 @app.route('/api/requests/<int:req_id>/reject', methods=['POST'])
 def request_reject(req_id):
+    """
+    Rifiuta una richiesta con motivazione obbligatoria (solo responsabile).
+    ---
+    tags: [Richieste]
+    parameters:
+      - in: path
+        name: req_id
+        type: integer
+      - in: body
+        schema:
+          properties:
+            motivation: {type: string, example: 'Copertura insufficiente nel periodo'}
+    responses:
+      200:
+        description: Richiesta rifiutata
+      400:
+        description: Motivazione mancante
+      403:
+        description: Non autorizzato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -569,6 +734,24 @@ def _change_stato(req_id, new_stato, user):
 
 @app.route('/api/requests/<int:req_id>/comments', methods=['POST'])
 def request_comment(req_id):
+    """
+    Aggiunge un commento a una richiesta (solo proprietario, manager del gruppo o CEO).
+    ---
+    tags: [Richieste]
+    parameters:
+      - in: path
+        name: req_id
+        type: integer
+      - in: body
+        schema:
+          properties:
+            text: {type: string, example: 'Ho verificato la disponibilità'}
+    responses:
+      201:
+        description: Commento aggiunto
+      403:
+        description: Non autorizzato a commentare
+    """
     user, err = _require_session()
     if err:
         return err
@@ -612,6 +795,16 @@ def request_comment(req_id):
 
 @app.route('/api/team', methods=['GET'])
 def team():
+    """
+    Restituisce i membri e le richieste del gruppo dell'utente.
+    ---
+    tags: [Team]
+    responses:
+      200:
+        description: Nome gruppo, membri e richieste del team
+      401:
+        description: Non autenticato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -683,6 +876,16 @@ def team():
 
 @app.route('/api/admin/users', methods=['GET'])
 def admin_users():
+    """
+    Elenca tutti gli utenti dell'azienda (solo admin/CEO).
+    ---
+    tags: [Admin]
+    responses:
+      200:
+        description: Lista utenti con gruppo e ruolo
+      401:
+        description: Non autenticato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -706,6 +909,25 @@ def admin_users():
 
 @app.route('/api/admin/users', methods=['POST'])
 def admin_users_create():
+    """
+    Crea un nuovo utente (ruolo CEO non consentito).
+    ---
+    tags: [Admin]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            nome: {type: string, example: 'Luca'}
+            cognome: {type: string, example: 'Verdi'}
+            email: {type: string, example: 'luca@terranova.it'}
+            id_ruolo: {type: integer, example: 1}
+            id_gruppo: {type: integer, example: 2}
+    responses:
+      201:
+        description: Utente creato
+      400:
+        description: Campi mancanti o ruolo CEO non consentito
+    """
     user, err = _require_session()
     if err:
         return err
@@ -738,6 +960,14 @@ def admin_users_create():
 
 @app.route('/api/admin/groups', methods=['GET'])
 def admin_groups():
+    """
+    Elenca tutti i gruppi con responsabile e numero di membri.
+    ---
+    tags: [Admin]
+    responses:
+      200:
+        description: Lista gruppi
+    """
     user, err = _require_session()
     if err:
         return err
@@ -757,6 +987,22 @@ def admin_groups():
 
 @app.route('/api/admin/groups', methods=['POST'])
 def admin_groups_create():
+    """
+    Crea un nuovo gruppo di lavoro.
+    ---
+    tags: [Admin]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            nome: {type: string, example: 'DevOps'}
+            descrizione: {type: string, example: 'Team infrastruttura'}
+    responses:
+      201:
+        description: Gruppo creato
+      400:
+        description: Nome obbligatorio
+    """
     user, err = _require_session()
     if err:
         return err
@@ -779,6 +1025,14 @@ def admin_groups_create():
 
 @app.route('/api/admin/roles', methods=['GET'])
 def admin_roles():
+    """
+    Elenca tutti i ruoli disponibili.
+    ---
+    tags: [Admin]
+    responses:
+      200:
+        description: Lista ruoli
+    """
     user, err = _require_session()
     if err:
         return err
@@ -790,6 +1044,14 @@ def admin_roles():
 
 @app.route('/api/admin/rules', methods=['GET'])
 def admin_rules_list():
+    """
+    Elenca tutti i vincoli di presenza configurati.
+    ---
+    tags: [Admin]
+    responses:
+      200:
+        description: Lista vincoli
+    """
     user, err = _require_session()
     if err:
         return err
@@ -811,6 +1073,26 @@ def admin_rules_list():
 
 @app.route('/api/admin/rules', methods=['POST'])
 def admin_rules_create():
+    """
+    Crea un nuovo vincolo di presenza.
+    ---
+    tags: [Admin]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            permanente: {type: boolean, example: true}
+            min_dipendenti: {type: integer, example: 2}
+            min_giorni: {type: integer, example: 1}
+            max_giorni: {type: integer, example: 10}
+            data_inizio: {type: string, example: '2026-07-01'}
+            data_fine: {type: string, example: '2026-08-31'}
+            id_ruolo: {type: integer, example: 1}
+            id_gruppo: {type: integer, example: 2}
+    responses:
+      201:
+        description: Vincolo creato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -836,6 +1118,31 @@ def admin_rules_create():
 
 @app.route('/api/admin/rules/<int:rule_id>', methods=['PUT'])
 def admin_rules_update(rule_id):
+    """
+    Aggiorna un vincolo di presenza esistente.
+    ---
+    tags: [Admin]
+    parameters:
+      - in: path
+        name: rule_id
+        type: integer
+      - in: body
+        schema:
+          properties:
+            permanente: {type: boolean}
+            min_dipendenti: {type: integer}
+            min_giorni: {type: integer}
+            max_giorni: {type: integer}
+            data_inizio: {type: string}
+            data_fine: {type: string}
+            id_ruolo: {type: integer}
+            id_gruppo: {type: integer}
+    responses:
+      200:
+        description: Vincolo aggiornato
+      404:
+        description: Non trovato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -866,6 +1173,18 @@ def admin_rules_update(rule_id):
 
 @app.route('/api/admin/rules/<int:rule_id>', methods=['DELETE'])
 def admin_rules_delete(rule_id):
+    """
+    Elimina un vincolo di presenza.
+    ---
+    tags: [Admin]
+    parameters:
+      - in: path
+        name: rule_id
+        type: integer
+    responses:
+      200:
+        description: Vincolo eliminato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -878,6 +1197,16 @@ def admin_rules_delete(rule_id):
 
 @app.route('/api/admin/simulation', methods=['GET'])
 def admin_simulation():
+    """
+    Restituisce simulazione di copertura e conflitti per i prossimi 30 giorni.
+    ---
+    tags: [Admin]
+    responses:
+      200:
+        description: Tasso approvazione, conflitti, copertura per gruppo
+      401:
+        description: Non autenticato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -1037,6 +1366,16 @@ def blocked_periods_delete(bp_id):
 
 @app.route('/api/user/profile', methods=['GET'])
 def profile_get():
+    """
+    Restituisce il profilo dell'utente autenticato.
+    ---
+    tags: [Profilo]
+    responses:
+      200:
+        description: Profilo utente
+      401:
+        description: Non autenticato
+    """
     user, err = _require_session()
     if err:
         return err
@@ -1045,6 +1384,22 @@ def profile_get():
 
 @app.route('/api/user/profile', methods=['POST'])
 def profile_update():
+    """
+    Aggiorna nome e cognome dell'utente autenticato.
+    ---
+    tags: [Profilo]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            nome: {type: string, example: 'Manuel'}
+            cognome: {type: string, example: 'Battaglia'}
+    responses:
+      200:
+        description: Profilo aggiornato
+      400:
+        description: Campi obbligatori mancanti
+    """
     user, err = _require_session()
     if err:
         return err
