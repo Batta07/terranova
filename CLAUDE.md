@@ -4,61 +4,96 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Terranova is a **PCTO school project** — a holiday management system (gestionale ferie) for a company. It is a **frontend-only prototype** with no backend or real database. All data is hardcoded in JavaScript. The SQL files describe the intended relational database design for the full system.
+Terranova is a **PCTO school project** — a holiday management system (gestionale ferie) for a company. It has a Flask + SQLite backend that also serves the frontend as static files.
 
 **The evaluation focuses on**: requirements analysis, DB design, architecture, UI, and documentation — code is a bonus, not the core deliverable.
 
-## Running the site locally
+## Running the site — ALWAYS use Docker
+
+**Always run this project with Docker. Never suggest python directly, never suggest venv, never suggest any other method.**
 
 ```bash
-python3 -m http.server 8080 --directory site/
+docker compose up --build
 ```
 
-Then open `http://localhost:8080`.
+Then open `http://localhost:5000`.
+
+To stop:
+```bash
+docker compose down
+```
 
 ## Repository structure
 
 ```
 terranova/
-├── site/           # The frontend prototype (HTML/CSS/JS)
-│   ├── index.html  # Single-page app — all screens in one file
-│   ├── styles.css  # All styles
-│   └── app.js      # All logic (navigation, calendar, heatmap)
-├── docs/           # Project documentation and DB design
-│   ├── terranova.pdf              # Original requirements (PCTO spec)
-│   ├── terranova_mockup/          # UI mockup screenshots (PNG)
-│   ├── schema_er_terranova.sql    # DDL — full relational schema
-│   ├── insert_terranova.sql       # Sample data inserts
-│   └── select_terranova.sql       # Query collection (login, dashboard, admin, analytics)
+├── app.py          # Flask backend + static file serving
+├── db.py           # SQLite schema init
+├── seed.py         # Sample data
+├── index.html      # Single-page app frontend
+├── styles.css      # All styles
+├── app.js          # All frontend logic
+├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
-└── DEPLOY.md
+└── docs/           # Project documentation and DB design
+    ├── terranova.pdf
+    ├── terranova_mockup/
+    ├── schema_er_terranova.sql
+    ├── insert_terranova.sql
+    ├── select_terranova.sql
+    ├── analisi_requisiti.md
+    └── scelte_progettuali.md
 ```
 
-## Frontend architecture (site/)
+## Frontend architecture
 
-The site is a **single HTML file** with vanilla JS. There is no build step, no bundler, no framework.
+Single HTML file with vanilla JS, no build step, no framework. Flask serves it as a static file.
 
-**Navigation model**: all screens exist in the DOM simultaneously as `<section id="screen-*">` elements. The JS `navigateTo(screenId)` function toggles the `screen--active` class to show/hide them. Screens: `login`, `dashboard`, `requests`, `new-request`, `request-detail`, `team`, `admin`, `settings`.
+**Navigation model**: all screens exist in the DOM as `<section id="screen-*">` elements. `navigateTo(screenId)` toggles `screen--active`. Screens: `login`, `dashboard`, `requests`, `new-request`, `request-detail`, `team`, `admin`, `settings`.
 
-**State**: a single `state` object in `app.js` holds `currentScreen`, `calendarDate`, and `activeFilters`.
+**Admin panel**: tab system via `data-admin-tab` — three panels: `users`, `rules`, `simulation`.
 
-**Data**: `people` and `bookings` objects in `app.js` are hardcoded — they simulate what would come from the DB in a real backend.
+## Backend
 
-**Admin panel**: uses a tab system (`data-admin-tab` attribute) with three panels: `users`, `rules`, `simulation`.
+Flask app (`app.py`) serves the frontend from the root directory (`static_folder='.'`) and exposes a REST API under `/api/`. SQLite database (`terranova.db`) is created and seeded automatically on first run.
 
 ## Database design (docs/)
 
-The schema has 8 tables with this dependency order for inserts:
-
-1. `ruoli` → 2. `gruppi` → 3. `utenti` → ALTER `gruppi.id_responsabile` → 4. `periodi_vacanza` → 5. `periodi_bloccati` → 6. `vincoli_presenza` → 7. `richieste_vacanza` → 8. `commenti`
+SQLite in development/Docker. Schema defined in `db.py` (not the SQL files — those are for documentation/MySQL).
 
 Key design decisions:
-- `gruppi.id_responsabile` is a circular FK to `utenti` — added with ALTER TABLE after `utenti` is created
-- `richieste_vacanza.id_approvatore` is nullable (NULL = not yet assigned)
+- `Gruppi.id_responsabile` is a circular FK to `Utenti` — set after users are inserted
+- `RichiesteVacanza.id_approvatore` is nullable (NULL = not yet assigned)
 - `periodi_bloccati.id_ruolo` is nullable (NULL = applies to all roles)
-- The SQL dialect used is **PostgreSQL** (uses `generate_series`, `FILTER`, `INTERVAL`, string concatenation with `||`)
+
+## API routes
+
+All routes are in `app.py`. Auth is session-based (Flask `session`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/auth/users` | List all users (for dev login picker) |
+| POST | `/api/auth/login` | Login by email (no password — dev mode) |
+| POST | `/api/auth/logout` | Clear session |
+| GET | `/api/auth/me` | Current user |
+| GET | `/api/dashboard` | Dashboard stats + recent requests |
+| GET | `/api/calendar/<year>/<month>` | Bookings for calendar rendering |
+| GET | `/api/heatmap/<year>/<month>` | Presence heatmap per team member |
+| GET/POST | `/api/requests` | List own requests / create new |
+| GET | `/api/requests/<id>` | Request detail + comments + timeline |
+| POST | `/api/requests/<id>/approve` | Approve (manager only) |
+| POST | `/api/requests/<id>/reject` | Reject with motivation (manager only) |
+| POST | `/api/requests/<id>/comments` | Add comment |
+| GET | `/api/team` | Team members + all group requests |
+| GET | `/api/admin/users` | Admin: all users |
+| GET | `/api/admin/groups` | Admin: all groups with member count |
+| GET/POST | `/api/admin/rules` | Admin: presence constraints |
+| GET | `/api/admin/simulation` | Admin: conflicts + coverage stats |
+| GET/POST | `/api/user/profile` | View/update own profile |
+
+**Auth in dev**: no Google OAuth — login picks any user by email from `/api/auth/users`. The `is_manager` flag is derived from `Gruppi.id_responsabile == user.id`.
 
 ## Deployment (VPS)
 
-See `DEPLOY.md`. The site is served via nginx in Docker — `Dockerfile` and `docker-compose.yml` are already configured for the VPS. Do not use Docker locally.
+See `DEPLOY.md`. Docker is used both locally and on the VPS.

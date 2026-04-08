@@ -5,7 +5,7 @@ from flask import Flask, session, request, jsonify, send_from_directory
 from db import get_db, init_db
 from seed import seed_if_empty
 
-app = Flask(__name__, static_folder='../site', static_url_path='')
+app = Flask(__name__, static_folder='.', static_url_path='')
 app.secret_key = os.environ.get('SECRET_KEY', 'terranova-dev-secret-2026')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 

@@ -2,36 +2,45 @@
 
 ## 1. Variabili d'ambiente
 
-Nessuna variabile richiesta. Il progetto e un sito statico senza backend.
+| Variabile | Descrizione | Default |
+|-----------|-------------|---------|
+| `SECRET_KEY` | Chiave segreta per le sessioni Flask | `terranova-dev-secret-2026` (cambiare in produzione) |
+
+Creare un file `.env` nella directory del progetto:
+```
+SECRET_KEY=<genera con: openssl rand -hex 32>
+```
 
 ## 2. Variabili da modificare nel codice
 
 | File | Valore | Descrizione |
 |------|--------|-------------|
-| Nessuno | — | Il sito e puramente statico, nessun valore hardcoded da cambiare |
+| `app.py` | `terranova-dev-secret-2026` | Sostituire con `SECRET_KEY` da `.env` in produzione |
 
-## 3. Configurazione Caddy
+## 3. Configurazione Caddy (VPS)
+
+Sul VPS, aggiornare il `docker-compose.yml` per usare `proxy_net` esterna invece di `terranova_net`:
+
+```yaml
+networks:
+  proxy_net:
+    external: true
+```
 
 Aggiungere questo blocco al Caddyfile:
 
 ```
 ferie.tuodominio.it {
-    reverse_proxy terranova:8005
+    reverse_proxy terranova:5000
 }
 ```
 
-Sostituire `ferie.tuodominio.it` con il dominio effettivo.
-
-## 4. Primo avvio
+## 4. Primo avvio (VPS)
 
 ```bash
-# Clonare il repo nella directory delle app
 cd /opt/docker/apps/terranova
-
-# Creare l'immagine e avviare
+docker network create proxy_net 2>/dev/null || true
 docker compose up -d --build
-
-# Verificare che il container sia attivo
 docker compose ps
 ```
 
