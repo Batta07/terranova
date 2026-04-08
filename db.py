@@ -52,6 +52,8 @@ def init_db():
         id             INTEGER PRIMARY KEY AUTOINCREMENT,
         permanente     INTEGER NOT NULL CHECK(permanente IN (0,1)),
         min_dipendenti INTEGER NOT NULL,
+        min_giorni     INTEGER,
+        max_giorni     INTEGER,
         data_inizio    TEXT,
         data_fine      TEXT,
         id_ruolo       INTEGER REFERENCES Ruoli(id),
@@ -64,6 +66,13 @@ def init_db():
         data         TEXT    NOT NULL,
         id_richiesta INTEGER NOT NULL REFERENCES RichiesteVacanza(id),
         id_utente    INTEGER NOT NULL REFERENCES Utenti(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS PeriodiBlocchi (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        data_inizio TEXT NOT NULL,
+        data_fine   TEXT NOT NULL,
+        motivo      TEXT
     );
     """)
     conn.commit()

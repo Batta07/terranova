@@ -14,7 +14,7 @@
     currentRequestId: null,
   };
 
-  let calendarData = { people: {}, bookings: {} };
+  let calendarData = { people: {}, bookings: {}, blocked_days: [] };
 
   const monthNames = [
     'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -80,6 +80,18 @@
     const initials = (user.nome[0] + user.cognome[0]).toUpperCase();
     const avatarSpan = $('#nav-avatar > span');
     if (avatarSpan) avatarSpan.textContent = initials;
+    _updateNavVisibility(user);
+  }
+
+  function _updateNavVisibility(user) {
+    // Team: solo per responsabili (is_manager) e CEO
+    $$('[data-screen="team"]').forEach(el => {
+      el.style.display = (user.is_manager || user.is_ceo) ? '' : 'none';
+    });
+    // Admin: solo per CEO
+    $$('[data-screen="admin"]').forEach(el => {
+      el.style.display = user.is_ceo ? '' : 'none';
+    });
   }
 
   // ── NAVIGATION ──────────────────────────────────
@@ -184,6 +196,8 @@
 
   // ── AVATAR DROPDOWN ─────────────────────────────
   $('#nav-avatar').addEventListener('click', (e) => {
+    // Non bloccare i click sui link del dropdown (navigazione e logout)
+    if (e.target.closest('.dropdown-item')) return;
     e.stopPropagation();
     $('#avatar-dropdown').classList.toggle('avatar-dropdown--open');
   });
@@ -209,20 +223,15 @@
     if (!data) return;
 
     const cards = $$('.summary-card-value');
-    if (cards[0]) cards[0].textContent = data.ferie_residue;
-    if (cards[1]) cards[1].textContent = data.in_approvazione;
-    if (cards[2]) cards[2].textContent = data.ferie_passate;
+    if (cards[0]) cards[0].textContent = data.in_approvazione;
+    if (cards[1]) cards[1].textContent = data.ferie_passate;
 
-    const trends = $$('.summary-card-trend');
-    if (trends[0]) trends[0].textContent = `di ${data.ferie_totali} totali`;
-    if (trends[2]) trends[2].textContent = `${data.percent_usate}% del totale`;
-
-    const subtitle = $('.page-subtitle');
+    const subtitle = $('#dashboard-subtitle');
     if (subtitle && state.currentUser) {
       subtitle.textContent = `Benvenuto, ${state.currentUser.nome} ${state.currentUser.cognome}`;
     }
 
-    const tbody = $('#screen-dashboard .data-table tbody');
+    const tbody = $('#dashboard-recent-tbody');
     if (tbody) {
       tbody.innerHTML = data.recent_requests.length
         ? data.recent_requests.map(r => `
@@ -232,6 +241,22 @@
               <td><span class="badge ${statoBadge(r.stato)}">${statoLabel(r.stato)}</span></td>
             </tr>`).join('')
         : '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">Nessuna richiesta</td></tr>';
+    }
+
+    // Activity feed from recent requests
+    const feed = $('#activity-feed');
+    if (feed) {
+      const dotClass = { approved: 'success', pending: 'warning', rejected: 'danger' };
+      feed.innerHTML = data.recent_requests.length
+        ? data.recent_requests.map(r => `
+            <div class="activity-item">
+              <div class="activity-dot activity-dot--${dotClass[r.stato] || 'info'}"></div>
+              <div class="activity-body">
+                <p class="activity-text"><strong>#${r.id}</strong> — ${tipoLabel(r.tipo)} ${statoLabel(r.stato).toLowerCase()}</p>
+                <span class="activity-time">${formatPeriod(r.data_inizio, r.data_fine)}</span>
+              </div>
+            </div>`).join('')
+        : '<p style="color:var(--text-muted);font-size:.9rem">Nessuna attività recente.</p>';
     }
   }
 
@@ -299,9 +324,13 @@
       numSpan.textContent = d;
       cell.appendChild(numSpan);
 
+      const isBlocked = (calendarData.blocked_days || []).includes(d);
+
       if (isWeekend) {
         cell.classList.add('cal-day--weekend');
         cell.classList.add('cal-day--blocked');
+      } else if (isBlocked) {
+        cell.classList.add('cal-day--nonbookable');
       }
 
       if (isCurrentMonth && d === today.getDate()) {
@@ -329,8 +358,26 @@
       });
 
       if (hasMyBooking) cell.classList.add('cal-day--booked');
+
+      if (!isWeekend && !isBlocked) {
+        cell.classList.add('cal-day--clickable');
+        cell.addEventListener('click', () => {
+          const pad = n => String(n).padStart(2, '0');
+          const dateStr = `${year}-${pad(month + 1)}-${pad(d)}`;
+          openNewRequest(dateStr);
+        });
+      }
+
       grid.appendChild(cell);
     }
+  }
+
+  function openNewRequest(dateStr) {
+    navigateTo('new-request');
+    const startInput = $('#new-request-start');
+    const endInput   = $('#new-request-end');
+    if (startInput) startInput.value = dateStr;
+    if (endInput)   endInput.value   = dateStr;
   }
 
   function renderLegend() {
@@ -360,6 +407,10 @@
   });
 
   $$('.filter-toggle').forEach(btn => {
+    // Apply initial active state based on state.activeFilters
+    if (state.activeFilters.has(btn.dataset.filter)) {
+      btn.classList.add('filter-toggle--active');
+    }
     btn.addEventListener('click', () => {
       const filter = btn.dataset.filter;
       btn.classList.toggle('filter-toggle--active');
@@ -450,14 +501,20 @@
     if (pageId) pageId.textContent = `#REQ-${data.id}`;
 
     // Populate detail-meta
-    const metaRows = $$('#screen-request-detail .meta-row .meta-value');
-    if (metaRows.length >= 6) {
-      metaRows[0].textContent = tipoLabel(data.tipo);
-      metaRows[1].textContent = formatPeriod(data.data_inizio, data.data_fine);
-      metaRows[2].textContent = `${data.giorni} giorni`;
-      metaRows[3].innerHTML = `<span class="badge ${statoBadge(data.stato)}">${statoLabel(data.stato)}</span>`;
-      metaRows[4].textContent = data.data_creazione;
-      metaRows[5].textContent = `${data.utente.nome} ${data.utente.cognome}`;
+    const detailMeta = $('#detail-meta');
+    if (detailMeta) {
+      detailMeta.innerHTML = [
+        ['Tipo',       tipoLabel(data.tipo)],
+        ['Periodo',    formatPeriod(data.data_inizio, data.data_fine)],
+        ['Durata',     `${data.giorni} giorni`],
+        ['Stato',      `<span class="badge ${statoBadge(data.stato)}">${statoLabel(data.stato)}</span>`],
+        ['Data invio', data.data_creazione],
+        ['Richiedente',`${data.utente.nome} ${data.utente.cognome}`],
+      ].map(([label, val]) => `
+        <div class="meta-row">
+          <span class="meta-label">${label}</span>
+          <span class="meta-value">${val}</span>
+        </div>`).join('');
     }
 
     // Comments
@@ -481,7 +538,8 @@
     if (managerCard) {
       const isManager = state.currentUser && state.currentUser.is_manager;
       const isOwn = data.is_own;
-      managerCard.style.display = (isManager && !isOwn) ? '' : 'none';
+      const isPending = data.stato === 'pending';
+      managerCard.style.display = (isManager && !isOwn && isPending) ? '' : 'none';
 
       if (isManager && !isOwn) {
         const btns = managerCard.querySelectorAll('button');
@@ -552,28 +610,28 @@
 
   // ── TEAM ────────────────────────────────────────
   async function initTeam() {
-    const data = await api('GET', '/api/team');
+    const year  = state.calendarDate.getFullYear();
+    const month = state.calendarDate.getMonth() + 1;
+    const [data, heatmapData] = await Promise.all([
+      api('GET', '/api/team'),
+      api('GET', `/api/heatmap/${year}/${month}`),
+    ]);
     if (!data) return;
 
-    // Update title
+    // Update group name
+    const groupNameEl = $('#team-group-name');
+    if (groupNameEl) groupNameEl.textContent = data.group_name || '';
     const title = $('#screen-team .card-title');
     if (title) title.textContent = `Copertura team - ${data.group_name}`;
 
-    // Render heatmap (reuse the same heatmap element #heatmap is on dashboard,
-    // team has its own — but in the single HTML they share the same id.
-    // Use the parent context to find the right one.)
+    // Render heatmap with real data
+    if (heatmapData) renderHeatmap(heatmapData.members || []);
+
     const teamScreen = $('#screen-team');
-    if (teamScreen) {
-      const hm = teamScreen.querySelector('#heatmap');
-      if (hm) {
-        // temporarily swap the global reference
-        const orig = document.getElementById('heatmap');
-        renderHeatmap(data.heatmap || []);
-      }
-    }
+    if (!teamScreen) return;
 
     // Team requests table
-    const tbody = teamScreen ? teamScreen.querySelector('.data-table tbody') : null;
+    const tbody = $('#team-requests-tbody');
     if (tbody) {
       tbody.innerHTML = data.requests.length
         ? data.requests.map(r => `
@@ -607,26 +665,91 @@
     ]);
 
     // Users tab
-    const usersPanel = $('#admin-users');
-    if (usersPanel && users) {
-      const tbody = usersPanel.querySelector('tbody');
-      if (tbody) {
-        tbody.innerHTML = users.map(u => `
-          <tr>
-            <td>${u.nome} ${u.cognome}</td>
-            <td>${u.email}</td>
-            <td>${u.ruolo}</td>
-            <td>${u.gruppo}${u.is_manager ? ' <span class="badge badge--success" style="font-size:.7rem">Manager</span>' : ''}</td>
-          </tr>`).join('');
-      }
-    }
+    if (users) _renderAdminUsers(users);
 
     // Groups tab
-    const groupsPanel = $('#admin-groups');
-    if (groupsPanel && groups) {
-      const tbody = groupsPanel.querySelector('tbody');
-      if (tbody) {
-        tbody.innerHTML = groups.map(g => `
+    const groupsTbody = $('#admin-groups-tbody');
+    if (groupsTbody && groups) {
+      groupsTbody.innerHTML = groups.map(g => `
+        <tr>
+          <td>${g.nome}</td>
+          <td>${g.descrizione || '--'}</td>
+          <td>${g.manager || '--'}</td>
+          <td>${g.num_membri}</td>
+        </tr>`).join('');
+    }
+
+    // Rules tab
+    if (rules) _renderRules(rules);
+
+    // Simulation tab
+    if (simulation) _renderSimulation(simulation);
+  }
+
+  // ── USERS CRUD ───────────────────────────────────
+  function _renderAdminUsers(users) {
+    const tbody = $('#admin-users-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td>${u.nome} ${u.cognome}</td>
+        <td class="mono">${u.email}</td>
+        <td>${u.ruolo}${u.is_manager ? ' <span class="badge badge--success" style="font-size:.7rem">Manager</span>' : ''}</td>
+        <td>${u.gruppo}</td>
+      </tr>`).join('');
+  }
+
+  async function _openAddUserForm() {
+    // Load dropdowns if needed
+    await _loadRulesDropdowns();
+    const ruoloSel = $('#new-user-ruolo');
+    const gruppoSel = $('#new-user-gruppo');
+    if (ruoloSel) {
+      ruoloSel.innerHTML = _rulesDropdownData.roles
+        .filter(r => r.ruolo !== 'CEO')
+        .map(r => `<option value="${r.id}">${r.ruolo}</option>`).join('');
+    }
+    if (gruppoSel) {
+      gruppoSel.innerHTML = _rulesDropdownData.groups
+        .map(g => `<option value="${g.id}">${g.nome}</option>`).join('');
+    }
+    $('#add-user-card').style.display = '';
+    $('#add-user-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  document.addEventListener('click', async (e) => {
+    if (e.target.id === 'btn-add-user') { _openAddUserForm(); return; }
+    if (e.target.id === 'btn-add-user-cancel') {
+      $('#add-user-card').style.display = 'none';
+      $('#form-add-user').reset();
+      return;
+    }
+    if (e.target.id === 'btn-add-group') {
+      $('#add-group-card').style.display = '';
+      $('#add-group-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (e.target.id === 'btn-add-group-cancel') {
+      $('#add-group-card').style.display = 'none';
+      $('#form-add-group').reset();
+      return;
+    }
+  });
+
+  $('#form-add-group').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      nome:        $('#new-group-nome').value.trim(),
+      descrizione: $('#new-group-descrizione').value.trim(),
+    };
+    const res = await api('POST', '/api/admin/groups', payload);
+    if (res) {
+      $('#add-group-card').style.display = 'none';
+      $('#form-add-group').reset();
+      const groups = await api('GET', '/api/admin/groups');
+      if (groups) {
+        const tbody = $('#admin-groups-tbody');
+        if (tbody) tbody.innerHTML = groups.map(g => `
           <tr>
             <td>${g.nome}</td>
             <td>${g.descrizione || '--'}</td>
@@ -635,67 +758,204 @@
           </tr>`).join('');
       }
     }
+  });
 
-    // Rules tab
-    const rulesPanel = $('#admin-rules');
-    if (rulesPanel && rules) {
-      const tbody = rulesPanel.querySelector('tbody');
-      if (tbody) {
-        tbody.innerHTML = rules.map(r => `
-          <tr>
-            <td>${r.permanente ? 'Permanente' : 'Temporanea'}</td>
-            <td>${r.min_dipendenti}</td>
-            <td>${r.ruolo || '--'}</td>
-            <td>${r.gruppo || '--'}</td>
-            <td>${r.data_inizio || '--'}</td>
-            <td>${r.data_fine || '--'}</td>
-          </tr>`).join('');
-      }
+  $('#form-add-user').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      nome:      $('#new-user-nome').value.trim(),
+      cognome:   $('#new-user-cognome').value.trim(),
+      email:     $('#new-user-email').value.trim(),
+      id_ruolo:  parseInt($('#new-user-ruolo').value),
+      id_gruppo: parseInt($('#new-user-gruppo').value),
+    };
+    // Check CEO role client-side
+    const selectedRuolo = $('#new-user-ruolo');
+    if (selectedRuolo) {
+      const selectedText = selectedRuolo.options[selectedRuolo.selectedIndex]?.text || '';
+      if (selectedText === 'CEO') { alert('Non è possibile creare un altro utente con ruolo CEO.'); return; }
     }
+    const res = await api('POST', '/api/admin/users', payload);
+    if (res) {
+      $('#add-user-card').style.display = 'none';
+      $('#form-add-user').reset();
+      const users = await api('GET', '/api/admin/users');
+      if (users) _renderAdminUsers(users);
+    }
+  });
 
-    // Simulation tab
-    if (simulation) {
-      _renderSimulation(simulation);
+  // ── RULES CRUD ───────────────────────────────────
+  let _rulesDropdownData = { roles: [], groups: [] };
+
+  async function _loadRulesDropdowns() {
+    if (_rulesDropdownData.roles.length) return;
+    const [roles, groups] = await Promise.all([
+      api('GET', '/api/admin/roles'),
+      api('GET', '/api/admin/groups'),
+    ]);
+    _rulesDropdownData = { roles: roles || [], groups: groups || [] };
+
+    const ruoloSel = $('#rule-ruolo');
+    const gruppoSel = $('#rule-gruppo');
+    if (ruoloSel) {
+      ruoloSel.innerHTML = '<option value="">— Tutti i ruoli —</option>' +
+        _rulesDropdownData.roles.map(r => `<option value="${r.id}">${r.ruolo}</option>`).join('');
+    }
+    if (gruppoSel) {
+      gruppoSel.innerHTML = '<option value="">— Tutti i gruppi —</option>' +
+        _rulesDropdownData.groups.map(g => `<option value="${g.id}">${g.nome}</option>`).join('');
     }
   }
 
-  function _renderSimulation(sim) {
-    const panel = $('#admin-simulation');
-    if (!panel) return;
-
-    // Update stat numbers if they exist as text nodes / spans
-    const statValues = panel.querySelectorAll('.simulation-stat-value, .analytics-value');
-    if (statValues.length >= 3) {
-      statValues[0].textContent = `${sim.tasso_approvazione}%`;
-      statValues[1].textContent = sim.richieste_in_conflitto;
-      statValues[2].textContent = `${sim.copertura_media}%`;
+  function _renderRules(rules) {
+    const list = $('#rules-list');
+    if (!list) return;
+    if (!rules.length) {
+      list.innerHTML = '<p style="color:var(--text-muted);font-size:.875rem">Nessun vincolo configurato.</p>';
+      return;
     }
-
-    // Coverage bars
-    const coverageList = panel.querySelector('.coverage-list, .simulation-coverage');
-    if (coverageList) {
-      coverageList.innerHTML = sim.copertura_per_gruppo.map(g => `
-        <div class="coverage-item">
-          <span class="coverage-label">${g.gruppo}</span>
-          <div class="coverage-bar">
-            <div class="coverage-fill" style="width:${g.copertura_percentuale}%"></div>
+    list.innerHTML = rules.map(r => `
+      <div class="rule-card" style="margin-bottom:.75rem;padding:1rem;border:1px solid var(--border-color);border-radius:var(--radius);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+          <div style="display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;flex:1;">
+            <span><strong>${r.permanente ? 'Permanente' : 'Temporaneo'}</strong></span>
+            <span>Min. presenti: <strong>${r.min_dipendenti}</strong></span>
+            ${r.min_giorni ? `<span>Min. giorni: <strong>${r.min_giorni}</strong></span>` : ''}
+            ${r.max_giorni ? `<span>Max. giorni: <strong>${r.max_giorni}</strong></span>` : ''}
+            ${r.ruolo  ? `<span>Ruolo: <strong>${r.ruolo}</strong></span>` : ''}
+            ${r.gruppo ? `<span>Gruppo: <strong>${r.gruppo}</strong></span>` : ''}
+            ${!r.permanente && r.data_inizio ? `<span>Dal <strong>${r.data_inizio}</strong> al <strong>${r.data_fine || '--'}</strong></span>` : ''}
           </div>
-          <span class="coverage-pct">${g.copertura_percentuale}%</span>
+          <div style="display:flex;gap:.5rem;flex-shrink:0;">
+            <button class="btn btn--sm btn--ghost" data-rule-edit="${r.id}">Modifica</button>
+            <button class="btn btn--sm btn--danger" data-rule-delete="${r.id}">Elimina</button>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  function _openRuleForm(rule) {
+    $('#rule-form-title').textContent = rule ? 'Modifica vincolo' : 'Nuovo vincolo';
+    $('#rule-edit-id').value = rule ? rule.id : '';
+    $('#rule-permanente').value = rule ? (rule.permanente ? '1' : '0') : '1';
+    $('#rule-min').value = rule ? rule.min_dipendenti : 1;
+    $('#rule-min-giorni').value = rule ? (rule.min_giorni || '') : '';
+    $('#rule-max-giorni').value = rule ? (rule.max_giorni || '') : '';
+    $('#rule-data-inizio').value = rule ? (rule.data_inizio || '') : '';
+    $('#rule-data-fine').value = rule ? (rule.data_fine || '') : '';
+
+    _loadRulesDropdowns().then(() => {
+      const ruoloSel = $('#rule-ruolo');
+      const gruppoSel = $('#rule-gruppo');
+      if (ruoloSel && rule) {
+        const matchingOption = Array.from(ruoloSel.options).find(o => o.textContent === rule.ruolo);
+        ruoloSel.value = matchingOption ? matchingOption.value : '';
+      } else if (ruoloSel) {
+        ruoloSel.value = '';
+      }
+      if (gruppoSel && rule) {
+        const matchingOption = Array.from(gruppoSel.options).find(o => o.textContent === rule.gruppo);
+        gruppoSel.value = matchingOption ? matchingOption.value : '';
+      } else if (gruppoSel) {
+        gruppoSel.value = '';
+      }
+    });
+
+    $('#rule-form-card').style.display = '';
+    $('#rule-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function _closeRuleForm() {
+    $('#rule-form-card').style.display = 'none';
+    $('#form-rule').reset();
+    $('#rule-edit-id').value = '';
+  }
+
+  // Wire rule form buttons
+  document.addEventListener('click', async (e) => {
+    if (e.target.id === 'btn-new-rule') {
+      await _loadRulesDropdowns();
+      _openRuleForm(null);
+      return;
+    }
+    if (e.target.id === 'btn-rule-cancel') {
+      _closeRuleForm();
+      return;
+    }
+    if (e.target.dataset.ruleEdit) {
+      const ruleId = parseInt(e.target.dataset.ruleEdit);
+      const rules = await api('GET', '/api/admin/rules');
+      const rule = (rules || []).find(r => r.id === ruleId);
+      if (rule) _openRuleForm(rule);
+      return;
+    }
+    if (e.target.dataset.ruleDelete) {
+      if (!confirm('Eliminare questo vincolo?')) return;
+      const res = await api('DELETE', `/api/admin/rules/${e.target.dataset.ruleDelete}`);
+      if (res) {
+        const rules = await api('GET', '/api/admin/rules');
+        _renderRules(rules || []);
+      }
+      return;
+    }
+  });
+
+  $('#form-rule').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const editId = $('#rule-edit-id').value;
+    const permanente = $('#rule-permanente').value === '1';
+    const payload = {
+      permanente,
+      min_dipendenti: parseInt($('#rule-min').value) || 1,
+      min_giorni:  parseInt($('#rule-min-giorni').value) || null,
+      max_giorni:  parseInt($('#rule-max-giorni').value) || null,
+      data_inizio: !permanente ? ($('#rule-data-inizio').value || null) : null,
+      data_fine:   !permanente ? ($('#rule-data-fine').value || null)   : null,
+      id_ruolo:    parseInt($('#rule-ruolo').value)  || null,
+      id_gruppo:   parseInt($('#rule-gruppo').value) || null,
+    };
+    const res = editId
+      ? await api('PUT',  `/api/admin/rules/${editId}`, payload)
+      : await api('POST', '/api/admin/rules', payload);
+    if (res) {
+      _closeRuleForm();
+      const rules = await api('GET', '/api/admin/rules');
+      _renderRules(rules || []);
+    }
+  });
+
+  function _renderSimulation(sim) {
+    // Stats cards
+    const statsEl = $('#simulation-stats');
+    if (statsEl) {
+      const stats = [
+        { value: `${sim.tasso_approvazione}%`, label: 'Tasso approvazione', desc: 'Basato sui vincoli attivi', cls: 'success' },
+        { value: sim.richieste_in_conflitto,   label: 'Richieste in conflitto', desc: 'Sovrapposizioni rilevate', cls: sim.richieste_in_conflitto > 0 ? 'warning' : 'success' },
+        { value: `${sim.copertura_media}%`,    label: 'Copertura media team', desc: 'Prossimi 30 giorni', cls: 'info' },
+      ];
+      statsEl.innerHTML = stats.map(s => `
+        <div class="glass-card simulation-stat">
+          <div class="simulation-stat-value simulation-stat-value--${s.cls}">${s.value}</div>
+          <div class="simulation-stat-label">${s.label}</div>
+          <p class="simulation-stat-desc">${s.desc}</p>
         </div>`).join('');
     }
 
-    // Conflict list
-    const conflictList = panel.querySelector('.conflict-list');
-    if (conflictList) {
-      conflictList.innerHTML = sim.conflitti.length
-        ? sim.conflitti.map(c => `
-            <div class="conflict-row">
-              <span class="conflict-indicator conflict-indicator--warn">
-                ${c.dipendente_a} (#${c.richiesta_a}) ↔ ${c.dipendente_b} (#${c.richiesta_b})
-                — ${c.gruppo} — ${c.overlap_inizio} / ${c.overlap_fine}
-              </span>
-            </div>`).join('')
-        : '<p style="color:var(--accent)">Nessun conflitto rilevato.</p>';
+    // Coverage bars
+    const barsEl = $('#simulation-bars');
+    if (barsEl) {
+      barsEl.innerHTML = sim.copertura_per_gruppo.map(g => {
+        const pct = g.copertura_percentuale;
+        const cls = pct >= 80 ? 'success' : pct >= 50 ? 'warning' : 'danger';
+        return `
+          <div class="sim-bar-group">
+            <div class="sim-bar-label">${g.gruppo}</div>
+            <div class="sim-bar-track">
+              <div class="sim-bar-fill sim-bar-fill--${cls}" style="width:${pct}%"></div>
+            </div>
+            <span class="sim-bar-value">${pct}%</span>
+          </div>`;
+      }).join('');
     }
   }
 
@@ -758,7 +1018,27 @@
         end_date:   dates[1]   ? dates[1].value   : '',
         notes:      notes      ? notes.value       : '',
       };
-      const result = await api('POST', '/api/requests', formData);
+      // Client-side: check for weekends in range
+      if (formData.start_date && formData.end_date) {
+        const s = new Date(formData.start_date + 'T00:00:00');
+        const e = new Date(formData.end_date + 'T00:00:00');
+        let cur = new Date(s);
+        let hasWeekend = false;
+        while (cur <= e) { if (cur.getDay() === 0 || cur.getDay() === 6) { hasWeekend = true; break; } cur.setDate(cur.getDate() + 1); }
+        if (hasWeekend) { alert('Il periodo selezionato include giorni di weekend.'); return; }
+      }
+      const res = await fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(formData),
+      });
+      if (res.status === 400) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Errore nella richiesta.');
+        return;
+      }
+      const result = res.ok ? await res.json() : null;
       if (result) {
         newRequestForm.reset();
         navigateTo('requests');

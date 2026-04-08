@@ -2,6 +2,7 @@ import os
 import datetime
 import calendar as cal_module
 from flask import Flask, session, request, jsonify, send_from_directory
+from flasgger import Swagger
 from db import get_db, init_db
 from seed import seed_if_empty
 
@@ -9,8 +10,20 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 app.secret_key = os.environ.get('SECRET_KEY', 'terranova-dev-secret-2026')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
+swagger_config = {
+    'headers': [],
+    'specs': [{'endpoint': 'apispec', 'route': '/apispec.json', 'rule_filter': lambda rule: rule.rule.startswith('/api/'), 'model_filter': lambda tag: True}],
+    'static_url_path': '/flasgger_static',
+    'swagger_ui': True,
+    'specs_route': '/docs',
+}
+swagger_template = {
+    'info': {'title': 'Terranova API', 'description': 'Gestionale ferie Terranova', 'version': '1.0'},
+    'securityDefinitions': {'SessionCookie': {'type': 'apiKey', 'in': 'cookie', 'name': 'session'}},
+}
+Swagger(app, config=swagger_config, template=swagger_template)
+
 PALETTE = ['#2ECC71', '#8e44ad', '#2980b9', '#e67e22', '#1abc9c', '#e74c3c', '#f39c12', '#16a085']
-FERIE_TOTALI = 26
 
 _bootstrapped = False
 
@@ -58,6 +71,7 @@ def _user_dict(row):
         'id_gruppo': row['id_gruppo'],
         'id_ruolo': row['id_ruolo'],
         'is_manager': bool(row['is_manager']),
+        'is_ceo': row['ruolo'] == 'CEO',
     }
 
 
@@ -65,6 +79,32 @@ def _days_between(start_str, end_str):
     start = datetime.date.fromisoformat(start_str)
     end = datetime.date.fromisoformat(end_str)
     return (end - start).days + 1
+
+
+def _get_blocked_ranges(conn):
+    """Return list of (date_start, date_end) for all PeriodiBlocchi."""
+    rows = conn.execute('SELECT data_inizio, data_fine FROM PeriodiBlocchi').fetchall()
+    return [(datetime.date.fromisoformat(r['data_inizio']), datetime.date.fromisoformat(r['data_fine'])) for r in rows]
+
+
+def _overlaps_blocked(start_str, end_str, blocked_ranges):
+    start = datetime.date.fromisoformat(start_str)
+    end = datetime.date.fromisoformat(end_str)
+    for bs, be in blocked_ranges:
+        if start <= be and end >= bs:
+            return True
+    return False
+
+
+def _has_weekend(start_str, end_str):
+    start = datetime.date.fromisoformat(start_str)
+    end = datetime.date.fromisoformat(end_str)
+    d = start
+    while d <= end:
+        if d.weekday() >= 5:
+            return True
+        d += datetime.timedelta(days=1)
+    return False
 
 
 def _format_date_it(date_str):
@@ -154,12 +194,11 @@ def dashboard():
         "SELECT COUNT(*) FROM RichiesteVacanza WHERE id_utente=? AND stato='pending'", (uid,)
     ).fetchone()[0]
 
-    approved = conn.execute(
+    days_used = conn.execute(
         "SELECT data_inizio, data_fine FROM RichiesteVacanza WHERE id_utente=? AND stato='approved'",
         (uid,)
     ).fetchall()
-
-    days_used = sum(_days_between(r['data_inizio'], r['data_fine']) for r in approved
+    days_used = sum(_days_between(r['data_inizio'], r['data_fine']) for r in days_used
                     if r['data_fine'] < today)
 
     recent = conn.execute(
@@ -170,15 +209,9 @@ def dashboard():
 
     conn.close()
 
-    ferie_residue = max(0, FERIE_TOTALI - days_used)
-    percent = round(days_used / FERIE_TOTALI * 100)
-
     return jsonify({
-        'ferie_residue': ferie_residue,
-        'ferie_totali': FERIE_TOTALI,
         'in_approvazione': pending_count,
         'ferie_passate': days_used,
-        'percent_usate': percent,
         'recent_requests': [
             {
                 'id': r['id'],
@@ -215,7 +248,22 @@ def calendar_data(year, month):
              AND rv.data_inizio <= ? AND rv.data_fine >= ?''',
         (month_end, month_start)
     ).fetchall()
+
+    blocked_rows = conn.execute(
+        'SELECT data_inizio, data_fine FROM PeriodiBlocchi WHERE data_inizio <= ? AND data_fine >= ?',
+        (month_end, month_start)
+    ).fetchall()
     conn.close()
+
+    # Compute blocked days for this month
+    blocked_days = set()
+    for br in blocked_rows:
+        bs = datetime.date.fromisoformat(br['data_inizio'])
+        be = datetime.date.fromisoformat(br['data_fine'])
+        for day_num in range(1, last_day + 1):
+            d = datetime.date(year, month, day_num)
+            if bs <= d <= be:
+                blocked_days.add(day_num)
 
     people = {}
     bookings = {}
@@ -243,7 +291,7 @@ def calendar_data(year, month):
         end_day = min(end.day, last_day) if end.year == year and end.month == month else last_day
         bookings.setdefault(key, []).append([start_day, end_day])
 
-    return jsonify({'people': people, 'bookings': bookings})
+    return jsonify({'people': people, 'bookings': bookings, 'blocked_days': sorted(blocked_days)})
 
 
 @app.route('/api/heatmap/<int:year>/<int:month>', methods=['GET'])
@@ -369,8 +417,8 @@ def request_detail(req_id):
     stato = row['stato']
     timeline = [
         {'label': 'Inviata',             'date': _format_date_it(row['data_creazione']), 'done': True,  'active': False},
-        {'label': 'Approvazione manager','date': _format_date_it(row['data_aggiornamento']) if stato != 'pending' else 'In corso', 'done': stato != 'pending', 'active': stato == 'pending'},
-        {'label': 'Completata',          'date': _format_date_it(row['data_aggiornamento']) if stato == 'approved' else '--', 'done': stato == 'approved', 'active': False},
+        {'label': 'Responsabile',        'date': _format_date_it(row['data_aggiornamento']) if stato != 'pending' else 'In corso', 'done': stato != 'pending', 'active': stato == 'pending'},
+        {'label': 'Approvata',           'date': _format_date_it(row['data_aggiornamento']) if stato == 'approved' else '--', 'done': stato == 'approved', 'active': stato == 'rejected'},
     ]
 
     return jsonify({
@@ -407,13 +455,45 @@ def request_create():
     notes = data.get('notes', '')
     if not start or not end:
         return jsonify({'error': 'start_date and end_date required'}), 400
+    if _has_weekend(start, end):
+        return jsonify({'error': 'Il periodo selezionato include giorni di weekend'}), 400
+    conn_check = get_db()
+    blocked = _get_blocked_ranges(conn_check)
+    conn_check.close()
+    if _overlaps_blocked(start, end, blocked):
+        return jsonify({'error': 'Il periodo selezionato include giorni non prenotabili'}), 400
+
+    # Validate min/max giorni against VincoliPresenza for this user's group
+    giorni_lavorativi = sum(
+        1 for i in range((_days_between(start, end)))
+        if (datetime.date.fromisoformat(start) + datetime.timedelta(days=i)).weekday() < 5
+    )
+    conn_rules = get_db()
+    vincoli = conn_rules.execute(
+        '''SELECT min_giorni, max_giorni FROM VincoliPresenza
+           WHERE id_gruppo = ? AND (id_ruolo IS NULL OR id_ruolo = ?)
+             AND (permanente = 1
+                  OR (data_inizio IS NOT NULL AND data_fine IS NOT NULL
+                      AND data_inizio <= ? AND data_fine >= ?))''',
+        (user['id_gruppo'], user['id_ruolo'], end, start)
+    ).fetchall()
+    conn_rules.close()
+    for v in vincoli:
+        if v['min_giorni'] and giorni_lavorativi < v['min_giorni']:
+            return jsonify({'error': f'La richiesta deve essere di almeno {v["min_giorni"]} giorni lavorativi'}), 400
+        if v['max_giorni'] and giorni_lavorativi > v['max_giorni']:
+            return jsonify({'error': f'La richiesta non può superare {v["max_giorni"]} giorni lavorativi'}), 400
+
     today = datetime.date.today().isoformat()
+    is_ceo = user['ruolo'] == 'CEO'
+    stato_iniziale = 'approved' if is_ceo else 'pending'
+    approvatore = user['id'] if is_ceo else None
     conn = get_db()
     cur = conn.execute(
         '''INSERT INTO RichiesteVacanza
-           (tipo, data_inizio, data_fine, stato, note_dipendente, data_creazione, data_aggiornamento, id_utente)
-           VALUES (?,?,?,'pending',?,?,?,?)''',
-        (tipo, start, end, notes or None, today, today, user['id'])
+           (tipo, data_inizio, data_fine, stato, note_dipendente, data_creazione, data_aggiornamento, id_utente, id_approvatore)
+           VALUES (?,?,?,?,?,?,?,?,?)''',
+        (tipo, start, end, stato_iniziale, notes or None, today, today, user['id'], approvatore)
     )
     new_id = cur.lastrowid
     conn.commit()
@@ -498,6 +578,21 @@ def request_comment(req_id):
         return jsonify({'error': 'text required'}), 400
     today = datetime.date.today().isoformat()
     conn = get_db()
+    # Solo il creatore, il manager del suo gruppo o il CEO possono commentare
+    req_row = conn.execute(
+        '''SELECT rv.id_utente, u.id_gruppo FROM RichiesteVacanza rv
+           JOIN Utenti u ON u.id = rv.id_utente WHERE rv.id=?''', (req_id,)
+    ).fetchone()
+    if req_row:
+        is_owner = req_row['id_utente'] == user['id']
+        is_ceo = user['ruolo'] == 'CEO'
+        manager_row = conn.execute(
+            'SELECT id_responsabile FROM Gruppi WHERE id=?', (req_row['id_gruppo'],)
+        ).fetchone()
+        is_group_manager = manager_row and manager_row['id_responsabile'] == user['id']
+        if not (is_owner or is_ceo or is_group_manager):
+            conn.close()
+            return jsonify({'error': 'Non autorizzato a commentare questa richiesta'}), 403
     cur = conn.execute(
         'INSERT INTO Commenti (testo, data, id_richiesta, id_utente) VALUES (?,?,?,?)',
         (text, today, req_id, user['id'])
@@ -609,6 +704,38 @@ def admin_users():
     ])
 
 
+@app.route('/api/admin/users', methods=['POST'])
+def admin_users_create():
+    user, err = _require_session()
+    if err:
+        return err
+    data = request.get_json(force=True) or {}
+    nome    = (data.get('nome') or '').strip()
+    cognome = (data.get('cognome') or '').strip()
+    email   = (data.get('email') or '').strip()
+    id_ruolo  = data.get('id_ruolo')
+    id_gruppo = data.get('id_gruppo')
+    if not nome or not cognome or not email or not id_ruolo or not id_gruppo:
+        return jsonify({'error': 'tutti i campi sono obbligatori'}), 400
+    conn = get_db()
+    ruolo_row = conn.execute('SELECT ruolo FROM Ruoli WHERE id=?', (id_ruolo,)).fetchone()
+    if ruolo_row and ruolo_row['ruolo'] == 'CEO':
+        conn.close()
+        return jsonify({'error': 'Non è possibile creare un altro utente con ruolo CEO'}), 400
+    try:
+        cur = conn.execute(
+            'INSERT INTO Utenti (nome, cognome, email, id_gruppo, id_ruolo) VALUES (?,?,?,?,?)',
+            (nome, cognome, email, id_gruppo, id_ruolo)
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 400
+    conn.close()
+    return jsonify({'id': new_id}), 201
+
+
 @app.route('/api/admin/groups', methods=['GET'])
 def admin_groups():
     user, err = _require_session()
@@ -628,6 +755,39 @@ def admin_groups():
     return jsonify([dict(r) for r in rows])
 
 
+@app.route('/api/admin/groups', methods=['POST'])
+def admin_groups_create():
+    user, err = _require_session()
+    if err:
+        return err
+    data = request.get_json(force=True) or {}
+    nome = (data.get('nome') or '').strip()
+    descrizione = (data.get('descrizione') or '').strip() or None
+    if not nome:
+        return jsonify({'error': 'nome obbligatorio'}), 400
+    conn = get_db()
+    try:
+        cur = conn.execute('INSERT INTO Gruppi (nome, descrizione, id_responsabile) VALUES (?,?,NULL)', (nome, descrizione))
+        conn.commit()
+        new_id = cur.lastrowid
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 400
+    conn.close()
+    return jsonify({'id': new_id}), 201
+
+
+@app.route('/api/admin/roles', methods=['GET'])
+def admin_roles():
+    user, err = _require_session()
+    if err:
+        return err
+    conn = get_db()
+    rows = conn.execute('SELECT id, ruolo FROM Ruoli ORDER BY ruolo').fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
 @app.route('/api/admin/rules', methods=['GET'])
 def admin_rules_list():
     user, err = _require_session()
@@ -635,8 +795,8 @@ def admin_rules_list():
         return err
     conn = get_db()
     rows = conn.execute(
-        '''SELECT vp.id, vp.permanente, vp.min_dipendenti, vp.data_inizio, vp.data_fine,
-                  r.ruolo, g.nome AS gruppo
+        '''SELECT vp.id, vp.permanente, vp.min_dipendenti, vp.min_giorni, vp.max_giorni,
+                  vp.data_inizio, vp.data_fine, r.ruolo, g.nome AS gruppo
            FROM VincoliPresenza vp
            LEFT JOIN Ruoli r ON r.id=vp.id_ruolo
            LEFT JOIN Gruppi g ON g.id=vp.id_gruppo
@@ -657,10 +817,12 @@ def admin_rules_create():
     data = request.get_json(force=True) or {}
     conn = get_db()
     cur = conn.execute(
-        '''INSERT INTO VincoliPresenza (permanente, min_dipendenti, data_inizio, data_fine, id_ruolo, id_gruppo)
-           VALUES (?,?,?,?,?,?)''',
+        '''INSERT INTO VincoliPresenza (permanente, min_dipendenti, min_giorni, max_giorni, data_inizio, data_fine, id_ruolo, id_gruppo)
+           VALUES (?,?,?,?,?,?,?,?)''',
         (1 if data.get('permanente') else 0,
          data.get('min_dipendenti', 1),
+         data.get('min_giorni') or None,
+         data.get('max_giorni') or None,
          data.get('data_inizio') or None,
          data.get('data_fine') or None,
          data.get('id_ruolo') or None,
@@ -670,6 +832,48 @@ def admin_rules_create():
     conn.commit()
     conn.close()
     return jsonify({'id': new_id}), 201
+
+
+@app.route('/api/admin/rules/<int:rule_id>', methods=['PUT'])
+def admin_rules_update(rule_id):
+    user, err = _require_session()
+    if err:
+        return err
+    data = request.get_json(force=True) or {}
+    conn = get_db()
+    row = conn.execute('SELECT id FROM VincoliPresenza WHERE id=?', (rule_id,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'error': 'Not found'}), 404
+    conn.execute(
+        '''UPDATE VincoliPresenza SET permanente=?, min_dipendenti=?, min_giorni=?, max_giorni=?,
+                  data_inizio=?, data_fine=?, id_ruolo=?, id_gruppo=?
+           WHERE id=?''',
+        (1 if data.get('permanente') else 0,
+         data.get('min_dipendenti', 1),
+         data.get('min_giorni') or None,
+         data.get('max_giorni') or None,
+         data.get('data_inizio') or None,
+         data.get('data_fine') or None,
+         data.get('id_ruolo') or None,
+         data.get('id_gruppo') or None,
+         rule_id)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/api/admin/rules/<int:rule_id>', methods=['DELETE'])
+def admin_rules_delete(rule_id):
+    user, err = _require_session()
+    if err:
+        return err
+    conn = get_db()
+    conn.execute('DELETE FROM VincoliPresenza WHERE id=?', (rule_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
 
 
 @app.route('/api/admin/simulation', methods=['GET'])
@@ -749,6 +953,84 @@ def admin_simulation():
             for r in conflict_rows
         ],
     })
+
+
+# ── Periodi Bloccati ─────────────────────────────────────────────────────────
+
+@app.route('/api/admin/blocked-periods', methods=['GET'])
+def blocked_periods_list():
+    """
+    Elenca tutti i periodi non prenotabili.
+    ---
+    tags: [Admin]
+    responses:
+      200:
+        description: Lista periodi bloccati
+    """
+    user, err = _require_session()
+    if err:
+        return err
+    conn = get_db()
+    rows = conn.execute('SELECT id, data_inizio, data_fine, motivo FROM PeriodiBlocchi ORDER BY data_inizio').fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/admin/blocked-periods', methods=['POST'])
+def blocked_periods_create():
+    """
+    Crea un nuovo periodo non prenotabile.
+    ---
+    tags: [Admin]
+    parameters:
+      - in: body
+        schema:
+          properties:
+            data_inizio: {type: string, example: '2026-12-21'}
+            data_fine: {type: string, example: '2026-12-23'}
+            motivo: {type: string, example: 'Chiusura aziendale'}
+    responses:
+      201:
+        description: Creato
+    """
+    user, err = _require_session()
+    if err:
+        return err
+    data = request.get_json(force=True) or {}
+    data_inizio = (data.get('data_inizio') or '').strip()
+    data_fine = (data.get('data_fine') or '').strip()
+    motivo = (data.get('motivo') or '').strip() or None
+    if not data_inizio or not data_fine:
+        return jsonify({'error': 'data_inizio e data_fine obbligatorie'}), 400
+    conn = get_db()
+    cur = conn.execute('INSERT INTO PeriodiBlocchi (data_inizio, data_fine, motivo) VALUES (?,?,?)', (data_inizio, data_fine, motivo))
+    conn.commit()
+    conn.close()
+    return jsonify({'id': cur.lastrowid}), 201
+
+
+@app.route('/api/admin/blocked-periods/<int:bp_id>', methods=['DELETE'])
+def blocked_periods_delete(bp_id):
+    """
+    Elimina un periodo non prenotabile.
+    ---
+    tags: [Admin]
+    parameters:
+      - in: path
+        name: bp_id
+        type: integer
+    responses:
+      200:
+        description: Eliminato
+    """
+    user, err = _require_session()
+    if err:
+        return err
+    conn = get_db()
+    conn.execute('DELETE FROM PeriodiBlocchi WHERE id=?', (bp_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
 
 
 # ── Profile ───────────────────────────────────────────────────────────────────
