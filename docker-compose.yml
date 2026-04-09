@@ -3,11 +3,9 @@ services:
     build: .
     container_name: terranova
     restart: unless-stopped
-    ports:
-      - "5001:5000"
     networks:
-      - terranova_net
+      - proxy_net
 
 networks:
-  terranova_net:
-    driver: bridge
+  proxy_net:
+    external: true

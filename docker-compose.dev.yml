@@ -1,0 +1,7 @@
+services:
+  terranova:
+    build: .
+    container_name: terranova-dev
+    restart: unless-stopped
+    ports:
+      - "5001:8005"

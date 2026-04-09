@@ -188,6 +188,9 @@
     e.preventDefault();
     await api('POST', '/api/auth/logout');
     state.currentUser = null;
+    const existingSelect = $('#user-select');
+    if (existingSelect) existingSelect.value = '';
+    await initLoginForm();
     navigateTo('login');
   };
 

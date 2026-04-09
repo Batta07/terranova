@@ -1,7 +1,7 @@
 import os
 import datetime
 import calendar as cal_module
-from flask import Flask, session, request, jsonify, send_from_directory
+from flask import Flask, session, request, jsonify, send_from_directory, Response
 from flasgger import Swagger
 from db import get_db, init_db
 from seed import seed_if_empty
@@ -16,6 +16,9 @@ swagger_config = {
     'static_url_path': '/flasgger_static',
     'swagger_ui': True,
     'specs_route': '/docs',
+    'swagger_ui_config': {
+        'withCredentials': True,
+    },
 }
 swagger_template = {
     'info': {'title': 'Terranova API', 'description': 'Gestionale ferie Terranova', 'version': '1.0'},
@@ -126,8 +129,61 @@ def index():
 def catch_all(path):
     full = os.path.join(app.static_folder, path)
     if os.path.isfile(full):
+        if path.lower().endswith('.pdf'):
+            return _serve_pdf(full)
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
+
+
+def _serve_pdf(filepath):
+    """Serve a PDF with HTTP Range request support for progressive loading."""
+    file_size = os.path.getsize(filepath)
+    range_header = request.headers.get('Range')
+
+    if range_header:
+        # Parse "bytes=start-end"
+        byte_range = range_header.replace('bytes=', '').strip()
+        parts = byte_range.split('-')
+        start = int(parts[0]) if parts[0] else 0
+        end = int(parts[1]) if parts[1] else file_size - 1
+        end = min(end, file_size - 1)
+        length = end - start + 1
+
+        def generate():
+            with open(filepath, 'rb') as f:
+                f.seek(start)
+                remaining = length
+                chunk = 65536  # 64 KB chunks
+                while remaining > 0:
+                    data = f.read(min(chunk, remaining))
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+
+        headers = {
+            'Content-Range': f'bytes {start}-{end}/{file_size}',
+            'Accept-Ranges': 'bytes',
+            'Content-Length': str(length),
+            'Content-Type': 'application/pdf',
+        }
+        return Response(generate(), status=206, headers=headers)
+
+    # No Range header — stream the whole file in chunks
+    def generate_full():
+        with open(filepath, 'rb') as f:
+            while True:
+                data = f.read(65536)
+                if not data:
+                    break
+                yield data
+
+    headers = {
+        'Accept-Ranges': 'bytes',
+        'Content-Length': str(file_size),
+        'Content-Type': 'application/pdf',
+    }
+    return Response(generate_full(), status=200, headers=headers)
 
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
@@ -154,11 +210,18 @@ def auth_login():
     Effettua il login selezionando un utente per email.
     ---
     tags: [Auth]
+    consumes:
+      - application/json
     parameters:
       - in: body
+        name: body
+        required: true
         schema:
+          required: [email]
           properties:
-            email: {type: string, example: 'manuel@terranova.it'}
+            email:
+              type: string
+              example: manuel.battaglia@terranova.com
     responses:
       200:
         description: Login effettuato
@@ -314,7 +377,7 @@ def calendar_data(year, month):
                   u.nome, u.cognome, u.id_gruppo
            FROM RichiesteVacanza rv
            JOIN Utenti u ON u.id = rv.id_utente
-           WHERE rv.stato IN ('approved','pending')
+           WHERE rv.stato = 'approved'
              AND rv.data_inizio <= ? AND rv.data_fine >= ?''',
         (month_end, month_start)
     ).fetchall()
@@ -562,19 +625,35 @@ def request_create():
     Crea una nuova richiesta di ferie o permesso.
     ---
     tags: [Richieste]
+    consumes:
+      - application/json
     parameters:
       - in: body
+        name: body
+        required: true
         schema:
+          required: [start_date, end_date]
           properties:
-            type: {type: string, example: 'ferie', enum: [ferie, permesso]}
-            start_date: {type: string, example: '2026-07-01'}
-            end_date: {type: string, example: '2026-07-05'}
-            notes: {type: string, example: 'Vacanza estiva'}
+            type:
+              type: string
+              example: ferie
+              enum: [ferie, permesso]
+            start_date:
+              type: string
+              example: '2026-07-01'
+            end_date:
+              type: string
+              example: '2026-07-05'
+            notes:
+              type: string
+              example: Vacanza estiva
     responses:
       201:
         description: Richiesta creata
       400:
         description: Dati mancanti o vincoli violati
+      401:
+        description: Non autenticato
     """
     user, err = _require_session()
     if err:
@@ -617,8 +696,10 @@ def request_create():
 
     today = datetime.date.today().isoformat()
     is_ceo = user['ruolo'] == 'CEO'
-    stato_iniziale = 'approved' if is_ceo else 'pending'
-    approvatore = user['id'] if is_ceo else None
+    is_manager = bool(user['is_manager'])
+    auto_approve = is_ceo or is_manager
+    stato_iniziale = 'approved' if auto_approve else 'pending'
+    approvatore = user['id'] if auto_approve else None
     conn = get_db()
     cur = conn.execute(
         '''INSERT INTO RichiesteVacanza
